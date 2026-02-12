@@ -1,40 +1,37 @@
 import { useRef } from "react";
-import { Camera, Zap, Leaf, Cpu, Upload, Check } from "lucide-react";
+import { Upload, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+import styleMinimalStudio from "@/assets/style-minimal-studio.webp";
+import styleDynamicAngle from "@/assets/style-dynamic-angle.jpg";
+import styleNatureLifestyle from "@/assets/style-nature-lifestyle.jpg";
+import styleTechFuturistic from "@/assets/style-tech-futuristic.webp";
 
 const stylePresets = [
   {
     id: "minimal-studio",
     label: "미니멀 스튜디오",
     description: "깔끔한 배경, 소프트 라이팅",
-    keywords: "화이트/그레이 톤, 그림자",
-    icon: Camera,
-    gradient: "from-gray-400/20 to-gray-600/20",
+    thumbnail: styleMinimalStudio,
   },
   {
     id: "dynamic-angle",
     label: "다이나믹 앵글",
     description: "역동적 구도, 강렬한 조명 대비",
-    keywords: "로우앵글, 하이라이트",
-    icon: Zap,
-    gradient: "from-orange-400/20 to-red-600/20",
+    thumbnail: styleDynamicAngle,
   },
   {
     id: "nature-lifestyle",
     label: "네이처/라이프스타일",
     description: "자연광, 생활 맥락 속 제품",
-    keywords: "나무, 패브릭, 일상",
-    icon: Leaf,
-    gradient: "from-green-400/20 to-emerald-600/20",
+    thumbnail: styleNatureLifestyle,
   },
   {
     id: "tech-futuristic",
     label: "테크/퓨처리스틱",
     description: "네온, 그리드, SF 감성",
-    keywords: "다크 배경, 글로우",
-    icon: Cpu,
-    gradient: "from-blue-400/20 to-purple-600/20",
+    thumbnail: styleTechFuturistic,
   },
 ];
 
@@ -88,23 +85,27 @@ export function StepStyle({
               key={style.id}
               onClick={() => selectPreset(style.id)}
               className={cn(
-                "relative flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all text-center",
+                "relative flex flex-col rounded-xl border-2 transition-all overflow-hidden",
                 isSelected
-                  ? "border-primary bg-primary/10 shadow-lg shadow-primary/10"
-                  : "border-border bg-card hover:border-muted-foreground/40 hover:bg-accent/50"
+                  ? "border-primary shadow-lg shadow-primary/10"
+                  : "border-border bg-card hover:border-muted-foreground/40"
               )}
             >
               {isSelected && (
-                <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                <div className="absolute top-2 right-2 z-10 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
                   <Check className="h-3 w-3 text-primary-foreground" />
                 </div>
               )}
-              <div className={cn("h-12 w-12 rounded-xl bg-gradient-to-br flex items-center justify-center", style.gradient)}>
-                <style.icon className="h-6 w-6 text-foreground" />
+              <div className="aspect-[4/3] w-full overflow-hidden">
+                <img
+                  src={style.thumbnail}
+                  alt={style.label}
+                  className="h-full w-full object-cover"
+                />
               </div>
-              <div>
+              <div className="p-3 text-left">
                 <p className="text-sm font-semibold">{style.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">{style.description}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{style.description}</p>
               </div>
             </button>
           );
