@@ -74,7 +74,7 @@ export function StepUpload({ productImage, onImageChange, onNext }: StepUploadPr
         variant="glow"
         className="px-8"
       >
-        스타일 선택하기
+        다음단계
       </Button>
     </div>
   );
