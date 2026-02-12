@@ -114,7 +114,7 @@ export function ResultView({ isGenerating, onRestart, detailOptions }: ResultVie
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 pb-16">
         <Button variant="outline" onClick={onRestart}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           새로 만들기
