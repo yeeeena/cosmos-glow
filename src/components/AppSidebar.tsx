@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, Users, Settings, FolderOpen } from "lucide-react";
+import { LayoutDashboard, BarChart3, Users, Settings, FolderOpen, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -13,6 +13,7 @@ import {
 
 const menuItems = [
   { title: "대시보드", url: "/", icon: LayoutDashboard },
+  { title: "생성", url: "/create", icon: Sparkles },
   { title: "분석", url: "/analytics", icon: BarChart3 },
   { title: "프로젝트", url: "/projects", icon: FolderOpen },
   { title: "사용자", url: "/users", icon: Users },
