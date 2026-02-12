@@ -8,38 +8,38 @@ interface StepIndicatorProps {
 
 export function StepIndicator({ currentStep, steps }: StepIndicatorProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       {steps.map((step, i) => {
         const stepNum = i + 1;
         const isActive = stepNum === currentStep;
         const isCompleted = stepNum < currentStep;
 
         return (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-1.5">
             {i > 0 && (
               <div
                 className={cn(
-                  "h-px w-8 transition-colors",
-                  isCompleted ? "bg-primary" : "bg-border"
+                  "h-px w-6 transition-colors",
+                  isCompleted ? "bg-primary/60" : "bg-border/50"
                 )}
               />
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div
                 className={cn(
-                  "h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
+                  "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold transition-all",
                   isActive && "bg-primary text-primary-foreground",
-                  isCompleted && "bg-primary text-primary-foreground",
-                  !isActive && !isCompleted && "bg-muted text-muted-foreground border border-border"
+                  isCompleted && "bg-primary/80 text-primary-foreground",
+                  !isActive && !isCompleted && "bg-muted/50 text-muted-foreground"
                 )}
               >
-                {isCompleted ? <Check className="h-3.5 w-3.5" /> : stepNum}
+                {isCompleted ? <Check className="h-3 w-3" /> : stepNum}
               </div>
               <div className="hidden sm:block">
                 <p
                   className={cn(
-                    "text-xs font-medium leading-none",
-                    isActive ? "text-foreground" : "text-muted-foreground"
+                    "text-[11px] font-medium leading-none",
+                    isActive ? "text-foreground" : "text-muted-foreground/70"
                   )}
                 >
                   {step.label}

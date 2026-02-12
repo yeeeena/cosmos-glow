@@ -1,52 +1,66 @@
-import { Home } from "lucide-react";
+import { Home, Eye, Sparkles, GitBranch, Settings, Square, HelpCircle, LayoutGrid } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const menuItems = [
+const topMenuItems = [
   { title: "홈", url: "/", icon: Home },
+  { title: "갤러리", url: "/gallery", icon: Eye },
+  { title: "생성", url: "/", icon: Sparkles, active: true },
+  { title: "히스토리", url: "/history", icon: GitBranch },
+  { title: "설정", url: "/settings", icon: Settings },
+  { title: "템플릿", url: "/templates", icon: Square },
 ];
+
+const bottomMenuItems = [
+  { title: "도움말", url: "/help", icon: HelpCircle },
+  { title: "대시보드", url: "/dashboard", icon: LayoutGrid },
+];
+
+function SidebarIcon({ item, isActive }: { item: typeof topMenuItems[0]; isActive?: boolean }) {
+  return (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <NavLink
+          to={item.url}
+          end={item.url === "/"}
+          className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-accent ${isActive ? "text-primary bg-primary/10" : ""}`}
+          activeClassName="text-primary bg-primary/10"
+        >
+          <item.icon className="h-5 w-5" />
+        </NavLink>
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>
+        <p>{item.title}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function AppSidebar() {
   return (
-    <Sidebar className="w-[220px] border-r border-border">
-      <div className="flex h-14 items-center px-5">
-        <span className="text-lg font-bold text-foreground tracking-tight">🧪픽스 실험실</span>
+    <div className="flex flex-col items-center w-16 h-screen border-r border-border bg-sidebar py-4 gap-1 shrink-0">
+      {/* Logo */}
+      <div className="flex items-center justify-center w-10 h-10 mb-4">
+        <span className="text-xl">🧪</span>
       </div>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground text-xs font-label uppercase tracking-wider px-5">
-            메뉴
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className="flex items-center gap-3 px-5 py-2.5 text-sm text-muted-foreground rounded-lg transition-colors hover:bg-accent hover:text-foreground"
-                      activeClassName="bg-accent text-foreground"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+
+      {/* Top nav */}
+      <nav className="flex flex-col items-center gap-1 flex-1">
+        {topMenuItems.map((item) => (
+          <SidebarIcon key={item.title} item={item} />
+        ))}
+      </nav>
+
+      {/* Bottom nav */}
+      <nav className="flex flex-col items-center gap-1">
+        {bottomMenuItems.map((item) => (
+          <SidebarIcon key={item.title} item={item} />
+        ))}
+        {/* Active indicator - sparkles */}
+        <div className="mt-2 flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground">
+          <Sparkles className="h-5 w-5" />
+        </div>
+      </nav>
+    </div>
   );
 }

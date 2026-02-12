@@ -34,7 +34,6 @@ const CreatePage = () => {
   const handleGenerate = () => {
     setShowResult(true);
     setIsGenerating(true);
-    // Mock generation delay
     setTimeout(() => setIsGenerating(false), 3000);
   };
 
@@ -50,14 +49,14 @@ const CreatePage = () => {
 
   return (
     <AppLayout>
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] -m-6">
-        {/* Header with step indicator */}
-        <div className="shrink-0 px-6 py-4 border-b border-border flex items-center justify-between">
-          <h1 className="text-lg font-bold">컨셉샷 생성</h1>
+      <div className="flex flex-col h-screen">
+        {/* Header */}
+        <div className="shrink-0 px-6 py-3 border-b border-border/50 flex items-center justify-between">
+          <h1 className="text-sm font-semibold text-muted-foreground">컨셉샷 생성</h1>
           {!showResult && <StepIndicator currentStep={currentStep} steps={STEPS} />}
         </div>
 
-        {/* Step content */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 flex">
           {showResult ? (
             <ResultView isGenerating={isGenerating} onRestart={handleRestart} />
