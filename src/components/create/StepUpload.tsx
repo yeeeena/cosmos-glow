@@ -75,7 +75,7 @@ export function StepUpload({ productImage, onImageChange, onNext }: StepUploadPr
         className="px-8"
       >
         <Upload className="h-4 w-4 mr-2" />
-        다음: 스타일 선택
+        스타일 선택하기
       </Button>
     </div>
   );
