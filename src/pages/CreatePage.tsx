@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/AppLayout";
+
 import { StepIndicator } from "@/components/create/StepIndicator";
 import { StepUpload } from "@/components/create/StepUpload";
 import { StepStyle } from "@/components/create/StepStyle";
@@ -48,7 +48,6 @@ const CreatePage = () => {
   };
 
   return (
-    <AppLayout>
       <div className="flex flex-col h-screen">
         {/* Header */}
         <div className="shrink-0 px-6 py-3 border-b border-border/50 flex items-center justify-between">
@@ -85,7 +84,6 @@ const CreatePage = () => {
           )}
         </div>
       </div>
-    </AppLayout>
   );
 };
 
