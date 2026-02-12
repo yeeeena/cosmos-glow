@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, Users, Settings, FolderOpen, Sparkles } from "lucide-react";
+import { Home } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -12,19 +12,14 @@ import {
 } from "@/components/ui/sidebar";
 
 const menuItems = [
-  { title: "대시보드", url: "/", icon: LayoutDashboard },
-  { title: "생성", url: "/create", icon: Sparkles },
-  { title: "분석", url: "/analytics", icon: BarChart3 },
-  { title: "프로젝트", url: "/projects", icon: FolderOpen },
-  { title: "사용자", url: "/users", icon: Users },
-  { title: "설정", url: "/settings", icon: Settings },
+  { title: "홈", url: "/", icon: Home },
 ];
 
 export function AppSidebar() {
   return (
     <Sidebar className="w-[220px] border-r border-border">
       <div className="flex h-14 items-center px-5">
-        <span className="text-lg font-bold text-foreground tracking-tight">Dashboard</span>
+        <span className="text-lg font-bold text-foreground tracking-tight">🧪픽스 실험실</span>
       </div>
       <SidebarContent>
         <SidebarGroup>
