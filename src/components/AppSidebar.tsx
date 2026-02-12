@@ -1,4 +1,4 @@
-import { Home, Sparkles, ImagePlus } from "lucide-react";
+import { Home, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -35,7 +35,7 @@ export function AppSidebar() {
               className="flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-accent"
               activeClassName="text-primary bg-primary/10"
             >
-              <ImagePlus className="h-5 w-5" />
+              <Sparkles className="h-5 w-5" />
             </NavLink>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>
