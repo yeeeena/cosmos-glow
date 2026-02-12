@@ -149,7 +149,7 @@ export function StepStyle({
           variant="glow"
           className="px-8"
         >
-          다음: 생성 옵션
+          옵션 선택하기
         </Button>
       </div>
     </div>

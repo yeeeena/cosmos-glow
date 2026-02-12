@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ImagePlus, X, Upload } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface StepUploadProps {
@@ -74,7 +74,6 @@ export function StepUpload({ productImage, onImageChange, onNext }: StepUploadPr
         variant="glow"
         className="px-8"
       >
-        <Upload className="h-4 w-4 mr-2" />
         스타일 선택하기
       </Button>
     </div>
