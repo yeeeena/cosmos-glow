@@ -59,7 +59,7 @@ const CreatePage = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 flex">
           {showResult ? (
-            <ResultView isGenerating={isGenerating} onRestart={handleRestart} />
+            <ResultView isGenerating={isGenerating} onRestart={handleRestart} detailOptions={detailOptions} />
           ) : currentStep === 1 ? (
             <StepUpload
               productImage={productImage}
