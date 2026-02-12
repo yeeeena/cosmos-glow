@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 const EMPTY_GRID_COUNT = 8;
 
 const recentProducts = [
-  { name: "Mockajacka", label: "Product" },
-  { name: "Spotted ceramic mug", label: "Product" },
-  { name: "Short Pile Jacket", label: "Product" },
-];
+{ name: "Mockajacka", label: "Product" },
+{ name: "Spotted ceramic mug", label: "Product" },
+{ name: "Short Pile Jacket", label: "Product" }];
+
 
 const CreatePage = () => {
   const [prompt, setPrompt] = useState("");
@@ -21,14 +21,14 @@ const CreatePage = () => {
         <div className="flex-1 overflow-y-auto p-6 pb-0">
           <h1 className="text-2xl font-bold mb-6">생성</h1>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: EMPTY_GRID_COUNT }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-[3/4] rounded-lg border-2 border-dashed border-border bg-card/50 flex items-center justify-center transition-colors hover:bg-card hover:border-muted-foreground/30"
-              >
+            {Array.from({ length: EMPTY_GRID_COUNT }).map((_, i) =>
+            <div
+              key={i}
+              className="aspect-[3/4] rounded-lg border-2 border-dashed border-border bg-card/50 flex items-center justify-center transition-colors hover:bg-card hover:border-muted-foreground/30">
+
                 <Plus className="h-6 w-6 text-muted-foreground/40" />
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -36,16 +36,16 @@ const CreatePage = () => {
         <div className="shrink-0 border-t border-border bg-background p-4 space-y-3">
           {/* Recent Product Chips */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {recentProducts.map((product) => (
-              <button
-                key={product.name}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border text-sm whitespace-nowrap hover:bg-accent transition-colors"
-              >
-                <div className="w-5 h-5 rounded bg-muted shrink-0" />
-                <span className="text-foreground font-label">{product.name}</span>
-                <span className="text-muted-foreground">· {product.label}</span>
-              </button>
-            ))}
+            {recentProducts.map((product) => {}
+
+
+
+
+
+
+
+
+            )}
           </div>
 
           {/* Text Input */}
@@ -55,16 +55,16 @@ const CreatePage = () => {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="이미지를 설명해주세요 (@ 입력으로 AI 모델 태그 가능)"
-              className="w-full bg-card border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-            />
-            {prompt && (
-              <button
-                onClick={() => setPrompt("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
+              className="w-full bg-card border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all" />
+
+            {prompt &&
+            <button
+              onClick={() => setPrompt("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+
                 <X className="h-4 w-4" />
               </button>
-            )}
+            }
           </div>
 
           {/* Options Bar */}
@@ -105,25 +105,25 @@ const CreatePage = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
-  );
+    </AppLayout>);
+
 };
 
-function OptionDropdown({ label }: { label: string }) {
+function OptionDropdown({ label }: {label: string;}) {
   return (
     <button className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-card text-xs font-label text-foreground hover:bg-accent transition-colors">
       {label}
       <ChevronDown className="h-3 w-3 text-muted-foreground" />
-    </button>
-  );
+    </button>);
+
 }
 
-function OptionPill({ label }: { label: string }) {
+function OptionPill({ label }: {label: string;}) {
   return (
     <button className="h-8 px-3 rounded-lg border border-border bg-card text-xs font-label text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
       {label}
-    </button>
-  );
+    </button>);
+
 }
 
 export default CreatePage;
