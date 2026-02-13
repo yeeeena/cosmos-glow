@@ -1,6 +1,5 @@
-import { useRef } from "react";
-import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/ui/image-uploader";
 
 interface StepUploadProps {
   productImage: string | null;
@@ -9,21 +8,6 @@ interface StepUploadProps {
 }
 
 export function StepUpload({ productImage, onImageChange, onNext }: StepUploadProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      onImageChange(url);
-    }
-  };
-
-  const removeImage = () => {
-    onImageChange(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   return (
     <div className="flex flex-col items-center justify-center flex-1 gap-8">
       <div className="text-center space-y-2">
@@ -33,40 +17,11 @@ export function StepUpload({ productImage, onImageChange, onNext }: StepUploadPr
         </p>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        className="hidden"
-        onChange={handleFileChange}
+      <ImageUploadField
+        value={productImage}
+        onChange={onImageChange}
+        className="w-64"
       />
-
-      {productImage ? (
-        <div className="relative group">
-          <img
-            src={productImage}
-            alt="업로드된 제품"
-            className="max-w-xs max-h-72 rounded-xl border border-border object-contain bg-card"
-          />
-          <button
-            onClick={removeImage}
-            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-64 h-64 rounded-2xl border-2 border-dashed border-border bg-card/50 flex flex-col items-center justify-center gap-3 text-muted-foreground hover:border-primary hover:text-primary transition-all hover:bg-primary/5 cursor-pointer"
-        >
-          <ImagePlus className="h-12 w-12" />
-          <div className="text-center">
-            <p className="text-sm font-medium">클릭하여 업로드</p>
-            <p className="text-xs mt-1">PNG, JPG, WEBP · 1024×1024 이상 권장</p>
-          </div>
-        </button>
-      )}
 
       <Button
         onClick={onNext}
