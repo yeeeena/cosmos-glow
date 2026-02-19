@@ -4,10 +4,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are a beauty product photography expert. Analyze this product image and return ONLY a JSON object with these exact fields:
-
+const SYSTEM_PROMPT = `You are a beauty product photography expert. Analyze this product image and return ONLY a JSON object:
 {
-  "container_color": "1~2 color words in English (e.g. dark amber, frosted white, pale pink)",
+  "container_color": "1~2 color words in English",
   "container_material": "glass or plastic or metal or other",
   "container_type": "pump bottle or cream jar or tube or spray or dropper or other",
   "product_category": "shampoo or body wash or cleanser or serum or ampoule or moisturizer or cream or mask or scrub or toner or perfume or body oil or other",
@@ -15,7 +14,7 @@ const SYSTEM_PROMPT = `You are a beauty product photography expert. Analyze this
   "texture_reason_ko": "이 텍스처를 선택한 이유 한 문장 (한국어)"
 }
 
-Texture selection rules:
+Texture rules:
 - foam_lather: shampoo, body wash, cleansing foam
 - cream_swirl: moisturizer, cream, hair mask
 - gel_oil_drip: serum, ampoule, facial oil
@@ -55,7 +54,15 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, imageBase64, prompt } = body;
 
-    // ─── ACTION: analyze — Groq (Llama 4 Scout Vision)으로 제품 분석 ───
+    const GEMINI_API_KEY = Deno.env.get("VITE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Gemini API 키가 설정되지 않았습니다." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ─── ACTION: analyze — Gemini Vision으로 제품 분석 ───
     if (action === "analyze") {
       if (!imageBase64) {
         return new Response(
@@ -64,53 +71,41 @@ Deno.serve(async (req) => {
         );
       }
 
-      const GROQ_API_KEY = Deno.env.get("VITE_GROQ_API_KEY");
-      if (!GROQ_API_KEY) {
-        return new Response(
-          JSON.stringify({ error: "Groq API 키가 설정되지 않았습니다. 환경변수를 확인해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Ensure the image has a proper data URI prefix
-      const imageUrl = imageBase64.startsWith("data:")
-        ? imageBase64
-        : `data:image/jpeg;base64,${imageBase64}`;
+      // Strip data URI prefix if present
+      const base64Data = imageBase64.startsWith("data:")
+        ? imageBase64.split(",")[1]
+        : imageBase64;
 
       const visionResponse = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${GROQ_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "meta-llama/llama-4-scout-17b-16e-instruct",
-            messages: [
+            contents: [
               {
-                role: "user",
-                content: [
+                parts: [
                   {
-                    type: "image_url",
-                    image_url: { url: imageUrl },
+                    inline_data: {
+                      mime_type: "image/jpeg",
+                      data: base64Data,
+                    },
                   },
-                  {
-                    type: "text",
-                    text: SYSTEM_PROMPT,
-                  },
+                  { text: SYSTEM_PROMPT },
                 ],
               },
             ],
-            max_tokens: 500,
-            temperature: 0.1,
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 500,
+            },
           }),
         }
       );
 
       if (!visionResponse.ok) {
         const errText = await visionResponse.text();
-        console.error("Groq Vision error:", visionResponse.status, errText);
+        console.error("Gemini Vision error:", visionResponse.status, errText);
         return new Response(
           JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -118,7 +113,7 @@ Deno.serve(async (req) => {
       }
 
       const visionData = await visionResponse.json();
-      let content = visionData?.choices?.[0]?.message?.content || "";
+      let content = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
       content = content.trim();
       if (content.startsWith("```")) {
@@ -147,7 +142,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── ACTION: generate — Hugging Face FLUX.1-schnell로 이미지 생성 ───
+    // ─── ACTION: generate — Gemini 2.0 Flash 이미지 생성 ───
     if (action === "generate") {
       if (!prompt) {
         return new Response(
@@ -156,43 +151,60 @@ Deno.serve(async (req) => {
         );
       }
 
-      const HF_API_KEY = Deno.env.get("VITE_HF_API_KEY");
-      if (!HF_API_KEY) {
-        return new Response(
-          JSON.stringify({ error: "Hugging Face API 키가 설정되지 않았습니다." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const hfResponse = await fetch(
-        "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
+      const genResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${HF_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ inputs: prompt }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ["IMAGE"],
+              temperature: 1,
+            },
+          }),
         }
       );
 
-      if (!hfResponse.ok) {
-        const errText = await hfResponse.text();
-        console.error("HF FLUX error:", hfResponse.status, errText);
+      if (!genResponse.ok) {
+        const errText = await genResponse.text();
+        console.error("Gemini Image Gen error:", genResponse.status, errText);
         return new Response(
           JSON.stringify({ error: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const imageBuffer = await hfResponse.arrayBuffer();
+      const genData = await genResponse.json();
 
-      return new Response(new Uint8Array(imageBuffer), {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "image/jpeg",
-        },
-      });
+      // Find the part with inlineData
+      let imageDataUri: string | null = null;
+      const parts = genData?.candidates?.[0]?.content?.parts;
+      if (parts) {
+        for (const part of parts) {
+          if (part.inlineData) {
+            imageDataUri = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+      }
+
+      if (!imageDataUri) {
+        console.error("No image in Gemini response:", JSON.stringify(genData).slice(0, 500));
+        return new Response(
+          JSON.stringify({ error: "이미지 생성에 실패했습니다. 응답에서 이미지를 찾을 수 없습니다." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ imageDataUri }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
