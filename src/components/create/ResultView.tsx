@@ -11,6 +11,7 @@ interface ResultViewProps {
   isGenerating: boolean;
   onRestart: () => void;
   detailOptions: DetailOptions;
+  generatedImage?: string | null;
 }
 
 const AI_DETAIL_LABELS: Record<string, string> = {
@@ -42,7 +43,7 @@ function buildResults(options: DetailOptions) {
   return results;
 }
 
-export function ResultView({ isGenerating, onRestart, detailOptions }: ResultViewProps) {
+export function ResultView({ isGenerating, onRestart, detailOptions, generatedImage }: ResultViewProps) {
   const results = buildResults(detailOptions);
   const detailResults = results.filter((r) => !r.isMain);
 
@@ -78,8 +79,12 @@ export function ResultView({ isGenerating, onRestart, detailOptions }: ResultVie
       {/* Main concept shot */}
       <div className="max-w-2xl mx-auto w-full">
         <div className="relative group">
-          <div className="aspect-[16/10] rounded-xl border border-border bg-card flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">메인 컨셉샷 미리보기</p>
+          <div className="aspect-[16/10] rounded-xl border border-border bg-card flex items-center justify-center overflow-hidden">
+            {generatedImage ? (
+              <img src={generatedImage} alt="생성된 컨셉샷" className="w-full h-full object-contain" />
+            ) : (
+              <p className="text-muted-foreground text-sm">메인 컨셉샷 미리보기</p>
+            )}
           </div>
           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">

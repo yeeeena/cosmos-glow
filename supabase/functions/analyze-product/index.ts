@@ -16,13 +16,13 @@ const SYSTEM_PROMPT = `You are a beauty product photography expert. Analyze this
 }
 
 Texture selection rules:
-- foam_lather: shampoo, body wash, cleansing foam (foamy products)
-- cream_swirl: moisturizer, cream, hair mask (thick creamy products)
-- gel_oil_drip: serum, ampoule, facial oil (transparent fluid products)
-- crystal_grain: scrub, peeling gel (exfoliating granule products)
-- silk_drape: perfume, body oil, luxury skincare (high-end editorial mood)
-- water_drops: toner, essence, mist (lightweight watery products)
-- mochi_stretch: cleansing cream, clay mask (thick viscous sticky products)
+- foam_lather: shampoo, body wash, cleansing foam
+- cream_swirl: moisturizer, cream, hair mask
+- gel_oil_drip: serum, ampoule, facial oil
+- crystal_grain: scrub, peeling gel
+- silk_drape: perfume, body oil, luxury skincare
+- water_drops: toner, essence, mist
+- mochi_stretch: cleansing cream, clay mask
 
 Return ONLY the JSON. No markdown, no explanation.`;
 
@@ -52,86 +52,140 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
+    const body = await req.json();
+    const { action, imageBase64, prompt } = body;
 
-    if (!imageBase64) {
+    const GEMINI_API_KEY = Deno.env.get("VITE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "imageBase64 is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
+        JSON.stringify({ error: "Gemini API 키가 설정되지 않았습니다. 환경변수를 확인해주세요." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Analyze this beauty product image." },
-              { type: "image_url", image_url: { url: imageBase64 } },
+    // ─── ACTION: analyze — Gemini Vision으로 제품 분석 ───
+    if (action === "analyze") {
+      if (!imageBase64) {
+        return new Response(
+          JSON.stringify({ error: "imageBase64 is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const rawBase64 = imageBase64.replace(/^data:image\/[^;]+;base64,/, "");
+
+      const visionResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { inline_data: { mime_type: "image/jpeg", data: rawBase64 } },
+                  { text: SYSTEM_PROMPT },
+                ],
+              },
             ],
-          },
-        ],
-      }),
-    });
+            generationConfig: { temperature: 0.1, maxOutputTokens: 500 },
+          }),
+        }
+      );
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-
-      if (response.status === 429) {
+      if (!visionResponse.ok) {
+        const errText = await visionResponse.text();
+        console.error("Gemini Vision error:", visionResponse.status, errText);
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+
+      const visionData = await visionResponse.json();
+      let content = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      content = content.trim();
+      if (content.startsWith("```")) {
+        content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      let analysis;
+      try {
+        analysis = JSON.parse(content);
+      } catch {
+        console.error("JSON parse error:", content);
         return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const texturePh = TEXTURE_PHRASES[analysis.selected_texture] || TEXTURE_PHRASES.cream_swirl;
+      const bgPh = BACKGROUND_PHRASES[analysis.selected_texture] || BACKGROUND_PHRASES.cream_swirl;
+
+      const generationPrompt = `TXTING style beauty product photography, ${analysis.container_color} ${analysis.container_material} ${analysis.container_type} ${analysis.product_category}, ${texturePh}, ${bgPh}, soft studio lighting, clean editorial product photography, high detail`;
+
+      return new Response(
+        JSON.stringify({ analysis, generationPrompt }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ─── ACTION: generate — Imagen 3으로 이미지 생성 ───
+    if (action === "generate") {
+      if (!prompt) {
+        return new Response(
+          JSON.stringify({ error: "prompt is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const imagenResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: "1:1",
+              safetyFilterLevel: "block_few",
+              personGeneration: "allow_adult",
+            },
+          }),
+        }
+      );
+
+      if (!imagenResponse.ok) {
+        const errText = await imagenResponse.text();
+        console.error("Imagen 3 error:", imagenResponse.status, errText);
+        return new Response(
+          JSON.stringify({ error: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const imagenData = await imagenResponse.json();
+      const generatedImageBase64 = imagenData?.predictions?.[0]?.bytesBase64Encoded;
+
+      if (!generatedImageBase64) {
+        return new Response(
+          JSON.stringify({ error: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ error: "AI analysis failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ imageBase64: `data:image/png;base64,${generatedImageBase64}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
-
-    // Parse JSON from response (strip markdown fences if present)
-    let jsonStr = content.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
-
-    const analysis = JSON.parse(jsonStr);
-
-    const texturePh = TEXTURE_PHRASES[analysis.selected_texture] || TEXTURE_PHRASES.cream_swirl;
-    const bgPh = BACKGROUND_PHRASES[analysis.selected_texture] || BACKGROUND_PHRASES.cream_swirl;
-
-    const generationPrompt = `TXTING style beauty product photography, ${analysis.container_color} ${analysis.container_material} ${analysis.container_type} ${analysis.product_category}, ${texturePh}, ${bgPh}, soft studio lighting, clean editorial product photography, high detail`;
 
     return new Response(
-      JSON.stringify({ analysis, generationPrompt }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: "Invalid action. Use 'analyze' or 'generate'." }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("analyze-product error:", e);
