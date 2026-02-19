@@ -1,12 +1,13 @@
+import { Box, Flex } from "@chakra-ui/react";
 import { AppSidebar } from "@/components/AppSidebar";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex w-full bg-background">
+    <Flex minH="100vh" w="full" bg="brand.bg">
       <AppSidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <Box as="main" flex={1} display="flex" flexDirection="column" overflow="hidden">
         {children}
-      </main>
-    </div>
+      </Box>
+    </Flex>
   );
 }

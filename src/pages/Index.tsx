@@ -1,10 +1,12 @@
+import { Flex, Heading } from "@chakra-ui/react";
+
 const Index = () => {
   return (
-    <div className="flex items-center justify-center h-full">
-      <h1 className="text-2xl font-bold text-foreground">
+    <Flex align="center" justify="center" h="full">
+      <Heading size="lg" color="brand.accent">
         픽스에서 실험중인 기능들이에요.
-      </h1>
-    </div>
+      </Heading>
+    </Flex>
   );
 };
 
