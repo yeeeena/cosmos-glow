@@ -55,15 +55,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, imageBase64, prompt } = body;
 
-    const GEMINI_API_KEY = Deno.env.get("VITE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Gemini API 키가 설정되지 않았습니다. 환경변수를 확인해주세요." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ─── ACTION: analyze — Gemini Vision으로 제품 분석 ───
+    // ─── ACTION: analyze — Groq (Llama 4 Scout Vision)으로 제품 분석 ───
     if (action === "analyze") {
       if (!imageBase64) {
         return new Response(
@@ -72,30 +64,53 @@ Deno.serve(async (req) => {
         );
       }
 
-      const rawBase64 = imageBase64.replace(/^data:image\/[^;]+;base64,/, "");
+      const GROQ_API_KEY = Deno.env.get("VITE_GROQ_API_KEY");
+      if (!GROQ_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Groq API 키가 설정되지 않았습니다. 환경변수를 확인해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Ensure the image has a proper data URI prefix
+      const imageUrl = imageBase64.startsWith("data:")
+        ? imageBase64
+        : `data:image/jpeg;base64,${imageBase64}`;
 
       const visionResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        "https://api.groq.com/openai/v1/chat/completions",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Authorization": `Bearer ${GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            contents: [
+            model: "meta-llama/llama-4-scout-17b-16e-instruct",
+            messages: [
               {
-                parts: [
-                  { inline_data: { mime_type: "image/jpeg", data: rawBase64 } },
-                  { text: SYSTEM_PROMPT },
+                role: "user",
+                content: [
+                  {
+                    type: "image_url",
+                    image_url: { url: imageUrl },
+                  },
+                  {
+                    type: "text",
+                    text: SYSTEM_PROMPT,
+                  },
                 ],
               },
             ],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 500 },
+            max_tokens: 500,
+            temperature: 0.1,
           }),
         }
       );
 
       if (!visionResponse.ok) {
         const errText = await visionResponse.text();
-        console.error("Gemini Vision error:", visionResponse.status, errText);
+        console.error("Groq Vision error:", visionResponse.status, errText);
         return new Response(
           JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -103,7 +118,7 @@ Deno.serve(async (req) => {
       }
 
       const visionData = await visionResponse.json();
-      let content = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      let content = visionData?.choices?.[0]?.message?.content || "";
 
       content = content.trim();
       if (content.startsWith("```")) {
