@@ -7,7 +7,7 @@ import styleMinimalStudio from "@/assets/style-minimal-studio.webp";
 import styleDynamicAngle from "@/assets/style-dynamic-angle.jpg";
 import styleNatureLifestyle from "@/assets/style-nature-lifestyle.jpg";
 import styleTechFuturistic from "@/assets/style-tech-futuristic.webp";
-
+import styleTextureConcept from "@/assets/style-texture-concept.png";
 const stylePresets = [
   {
     id: "minimal-studio",
@@ -33,6 +33,12 @@ const stylePresets = [
     description: "네온, 그리드, SF 감성",
     thumbnail: styleTechFuturistic,
   },
+  {
+    id: "texture-concept",
+    label: "텍스처 컨셉샷",
+    description: "성분 텍스처와 제품이 어우러지는 하이엔드 스튜디오샷",
+    thumbnail: styleTextureConcept,
+  },
 ];
 
 interface StepStyleProps {
@@ -42,6 +48,7 @@ interface StepStyleProps {
   onReferenceChange: (url: string | null) => void;
   onNext: () => void;
   onBack: () => void;
+  isAnalyzing?: boolean;
 }
 
 export function StepStyle({
@@ -51,6 +58,7 @@ export function StepStyle({
   onReferenceChange,
   onNext,
   onBack,
+  isAnalyzing = false,
 }: StepStyleProps) {
   const refInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,11 +154,11 @@ export function StepStyle({
         <Button variant="outline" onClick={onBack}>이전</Button>
         <Button
           onClick={onNext}
-          disabled={!selectedStyle}
+          disabled={!selectedStyle || isAnalyzing}
           variant="glow"
           className="px-8"
         >
-          다음단계
+          {isAnalyzing ? "제품 분석 중..." : "다음단계"}
         </Button>
       </div>
     </div>
