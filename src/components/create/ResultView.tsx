@@ -1,5 +1,5 @@
-import { Box, Button, Flex, Grid, Image, Text, VStack } from "@chakra-ui/react";
 import { Download, RefreshCw, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface DetailOptions {
   basicDetails: boolean;
@@ -25,14 +25,21 @@ function buildResults(options: DetailOptions) {
   const results: { id: string; label: string; isMain?: boolean }[] = [
     { id: "main", label: "메인 컨셉샷", isMain: true },
   ];
+
   if (options.basicDetails) {
-    results.push({ id: "basic-1", label: "정면 컷" }, { id: "basic-2", label: "측면 컷" }, { id: "basic-3", label: "45도 앵글 컷" });
+    results.push(
+      { id: "basic-1", label: "정면 컷" },
+      { id: "basic-2", label: "측면 컷" },
+      { id: "basic-3", label: "45도 앵글 컷" },
+    );
   }
+
   if (options.aiRecommended) {
     options.selectedAIDetails.forEach((id) => {
       results.push({ id, label: AI_DETAIL_LABELS[id] || id });
     });
   }
+
   return results;
 }
 
@@ -42,103 +49,86 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
 
   if (isGenerating) {
     return (
-      <Flex direction="column" align="center" justify="center" flex={1} gap={6}>
-        <Box position="relative" h="64px" w="64px">
-          <Box position="absolute" inset={0} rounded="full" border="4px solid" borderColor="brand.surface" />
-          <Box
-            position="absolute" inset={0} rounded="full" border="4px solid" borderColor="blue.500"
-            borderTopColor="transparent"
-            animation="spin 1s linear infinite"
-            sx={{ "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } } }}
-          />
-        </Box>
-        <VStack spacing={1} textAlign="center">
-          <Text fontSize="lg" fontWeight="semibold" color="brand.accent">컨셉샷 생성 중...</Text>
-          <Text fontSize="sm" color="brand.muted">총 {results.length}장 · 약 30초 정도 소요됩니다</Text>
-        </VStack>
-        <Box w="256px" h="8px" bg="brand.surface" rounded="full" overflow="hidden">
-          <Box
-            h="full" bg="blue.500" rounded="full" w="66%"
-            animation="pulse 2s ease-in-out infinite"
-            sx={{ "@keyframes pulse": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0.5 } } }}
-          />
-        </Box>
-      </Flex>
+      <div className="flex flex-col items-center justify-center flex-1 gap-6">
+        <div className="relative h-16 w-16">
+          <div className="absolute inset-0 rounded-full border-4 border-muted" />
+          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-lg font-semibold">컨셉샷 생성 중...</p>
+          <p className="text-sm text-muted-foreground">
+            총 {results.length}장 · 약 30초 정도 소요됩니다
+          </p>
+        </div>
+        <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+        </div>
+      </div>
     );
   }
 
   return (
-    <Flex direction="column" flex={1} gap={6}>
-      <VStack spacing={2} textAlign="center">
-        <Text fontSize="2xl" fontWeight="bold" color="brand.accent">생성 완료! 🎉</Text>
-        <Text fontSize="sm" color="brand.muted">총 {results.length}장의 컨셉샷이 준비되었습니다</Text>
-      </VStack>
+    <div className="flex flex-col flex-1 gap-6">
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold">생성 완료! 🎉</h2>
+        <p className="text-muted-foreground text-sm">
+          총 {results.length}장의 컨셉샷이 준비되었습니다
+        </p>
+      </div>
 
       {/* Main concept shot */}
-      <Box maxW="2xl" mx="auto" w="full">
-        <Box position="relative" role="group">
-          <Flex
-            sx={{ aspectRatio: "16/10" }}
-            rounded="xl"
-            border="1px solid"
-            borderColor="brand.surface"
-            bg="brand.surface"
-            align="center"
-            justify="center"
-            overflow="hidden"
-          >
+      <div className="max-w-2xl mx-auto w-full">
+        <div className="relative group">
+          <div className="aspect-[16/10] rounded-xl border border-border bg-card flex items-center justify-center overflow-hidden">
             {generatedImage ? (
-              <Image src={generatedImage} alt="생성된 컨셉샷" w="full" h="full" objectFit="contain" />
+              <img src={generatedImage} alt="생성된 컨셉샷" className="w-full h-full object-contain" />
             ) : (
-              <Text color="brand.muted" fontSize="sm">메인 컨셉샷 미리보기</Text>
+              <p className="text-muted-foreground text-sm">메인 컨셉샷 미리보기</p>
             )}
-          </Flex>
-          <Flex
-            position="absolute" top={2} right={2} gap={1}
-            opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.2s"
-          >
-            <Flex as="button" h="32px" w="32px" rounded="lg" bg="rgba(27,27,27,0.8)" backdropFilter="blur(4px)" align="center" justify="center" _hover={{ bg: "brand.surface" }} color="brand.text">
-              <Download size={16} />
-            </Flex>
-            <Flex as="button" h="32px" w="32px" rounded="lg" bg="rgba(27,27,27,0.8)" backdropFilter="blur(4px)" align="center" justify="center" _hover={{ bg: "brand.surface" }} color="brand.text">
-              <RefreshCw size={16} />
-            </Flex>
-          </Flex>
-        </Box>
-      </Box>
+          </div>
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+              <Download className="h-4 w-4" />
+            </button>
+            <button className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Detail shots grid */}
       {detailResults.length > 0 && (
-        <Grid maxW="2xl" mx="auto" w="full" templateColumns="repeat(3, 1fr)" gap={3}>
+        <div className="max-w-2xl mx-auto w-full grid grid-cols-3 gap-3">
           {detailResults.map((result) => (
-            <Box key={result.id} position="relative" role="group">
-              <Flex sx={{ aspectRatio: "1" }} rounded="xl" border="1px solid" borderColor="brand.surface" bg="brand.surface" align="center" justify="center">
-                <Text color="brand.muted" fontSize="xs" textAlign="center" px={2}>{result.label}</Text>
-              </Flex>
-              <Flex position="absolute" top={1.5} right={1.5} gap={1} opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.2s">
-                <Flex as="button" h="24px" w="24px" rounded="md" bg="rgba(27,27,27,0.8)" backdropFilter="blur(4px)" align="center" justify="center" _hover={{ bg: "brand.surface" }} color="brand.text">
-                  <Download size={12} />
-                </Flex>
-                <Flex as="button" h="24px" w="24px" rounded="md" bg="rgba(27,27,27,0.8)" backdropFilter="blur(4px)" align="center" justify="center" _hover={{ bg: "brand.surface" }} color="brand.text">
-                  <RefreshCw size={12} />
-                </Flex>
-              </Flex>
-            </Box>
+            <div key={result.id} className="relative group">
+              <div className="aspect-square rounded-xl border border-border bg-card flex items-center justify-center">
+                <p className="text-muted-foreground text-xs text-center px-2">{result.label}</p>
+              </div>
+              <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+                  <Download className="h-3 w-3" />
+                </button>
+                <button className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+                  <RefreshCw className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
           ))}
-        </Grid>
+        </div>
       )}
 
       {/* Actions */}
-      <Flex align="center" justify="center" gap={3} pb={16}>
-        <Button variant="outline" onClick={onRestart} borderColor="brand.surface" color="brand.text" _hover={{ bg: "brand.surface" }}>
-          <ArrowLeft size={16} />
-          <Text ml={2}>새로 만들기</Text>
+      <div className="flex items-center justify-center gap-3 pb-16">
+        <Button variant="outline" onClick={onRestart}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          새로 만들기
         </Button>
-        <Button colorScheme="blue" px={6} boxShadow="0 0 16px rgba(59, 130, 246, 0.35)">
-          <Download size={16} />
-          <Text ml={2}>ZIP 다운로드</Text>
+        <Button variant="glow" className="px-6">
+          <Download className="h-4 w-4 mr-2" />
+          ZIP 다운로드
         </Button>
-      </Flex>
-    </Flex>
+      </div>
+    </div>
   );
 }

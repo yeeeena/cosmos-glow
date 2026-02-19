@@ -1,6 +1,5 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { Flex, Heading, Text, Link } from "@chakra-ui/react";
 
 const NotFound = () => {
   const location = useLocation();
@@ -10,15 +9,15 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <Flex minH="100vh" align="center" justify="center" bg="brand.bg">
-      <Flex direction="column" align="center" textAlign="center">
-        <Heading size="2xl" mb={4} color="brand.accent">404</Heading>
-        <Text fontSize="xl" mb={4} color="brand.muted">Oops! Page not found</Text>
-        <Link href="/" color="blue.400" _hover={{ textDecoration: "underline" }}>
+    <div className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="text-center">
+        <h1 className="mb-4 text-4xl font-bold">404</h1>
+        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
+        <a href="/" className="text-primary underline hover:text-primary/90">
           Return to Home
-        </Link>
-      </Flex>
-    </Flex>
+        </a>
+      </div>
+    </div>
   );
 };
 

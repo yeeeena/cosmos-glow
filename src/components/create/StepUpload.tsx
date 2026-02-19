@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
+import { Button } from "@/components/ui/button";
 import { ImageUploadField } from "@/components/ui/image-uploader";
 
 interface StepUploadProps {
@@ -9,32 +9,28 @@ interface StepUploadProps {
 
 export function StepUpload({ productImage, onImageChange, onNext }: StepUploadProps) {
   return (
-    <Flex direction="column" align="center" justify="center" flex={1} gap={8}>
-      <VStack spacing={2} textAlign="center">
-        <Text fontSize="2xl" fontWeight="bold" color="brand.accent">
-          제품 이미지 업로드
-        </Text>
-        <Text fontSize="sm" color="brand.muted">
+    <div className="flex flex-col items-center justify-center flex-1 gap-8">
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold">제품 이미지 업로드</h2>
+        <p className="text-muted-foreground text-sm">
           컨셉샷으로 변환할 제품 이미지 1장을 업로드하세요
-        </Text>
-      </VStack>
+        </p>
+      </div>
 
       <ImageUploadField
         value={productImage}
         onChange={onImageChange}
-        width="256px"
+        className="w-64"
       />
 
       <Button
         onClick={onNext}
-        isDisabled={!productImage}
-        colorScheme="blue"
-        px={8}
-        _hover={{ opacity: 0.9 }}
-        boxShadow="0 0 16px rgba(59, 130, 246, 0.35)"
+        disabled={!productImage}
+        variant="glow"
+        className="px-8"
       >
         다음단계
       </Button>
-    </Flex>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
-import { Box, Button, Checkbox, Flex, Text, VStack } from "@chakra-ui/react";
-import { Check, Image as ImageIcon, Sparkles } from "lucide-react";
+import { Check, Image, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AIRecommendation } from "./AIRecommendation";
+import { cn } from "@/lib/utils";
 
 interface DetailOptions {
   basicDetails: boolean;
@@ -15,117 +16,120 @@ interface StepOptionsProps {
   onBack: () => void;
 }
 
-export function StepOptions({ detailOptions, onDetailOptionsChange, onGenerate, onBack }: StepOptionsProps) {
-  const totalCredits = 16 + (detailOptions.basicDetails ? 32 : 0) + (detailOptions.aiRecommended ? detailOptions.selectedAIDetails.length * 10 : 0);
+export function StepOptions({
+  detailOptions,
+  onDetailOptionsChange,
+  onGenerate,
+  onBack,
+}: StepOptionsProps) {
+  const totalCredits =
+    16 +
+    (detailOptions.basicDetails ? 32 : 0) +
+    (detailOptions.aiRecommended ? detailOptions.selectedAIDetails.length * 10 : 0);
 
   return (
-    <Flex direction="column" flex={1} gap={8}>
-      <VStack spacing={2} textAlign="center">
-        <Text fontSize="2xl" fontWeight="bold" color="brand.accent">생성 옵션 선택</Text>
-        <Text fontSize="sm" color="brand.muted">메인 컨셉샷 1장은 필수로 포함됩니다. 추가 상세컷을 선택하세요.</Text>
-      </VStack>
+    <div className="flex flex-col flex-1 gap-8">
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold">생성 옵션 선택</h2>
+        <p className="text-muted-foreground text-sm">
+          메인 컨셉샷 1장은 필수로 포함됩니다. 추가 상세컷을 선택하세요.
+        </p>
+      </div>
 
-      <VStack maxW="lg" mx="auto" w="full" spacing={4}>
+      <div className="max-w-lg mx-auto w-full space-y-4">
         {/* Main shot - always included */}
-        <Flex align="center" gap={3} p={4} rounded="xl" border="1px solid" borderColor="blue.500" bg="rgba(59,130,246,0.1)" w="full">
-          <Flex h="40px" w="40px" rounded="lg" bg="rgba(59,130,246,0.2)" align="center" justify="center">
-            <ImageIcon size={20} color="#3b82f6" />
-          </Flex>
-          <Box flex={1}>
-            <Text fontSize="sm" fontWeight="semibold" color="brand.accent">메인 컨셉샷 1장</Text>
-            <Text fontSize="xs" color="brand.muted">필수 포함</Text>
-          </Box>
-          <Text fontSize="xs" fontWeight="medium" color="blue.400">16 credits</Text>
-        </Flex>
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-primary bg-primary/10">
+          <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
+            <Image className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">메인 컨셉샷 1장</p>
+            <p className="text-xs text-muted-foreground">필수 포함</p>
+          </div>
+          <span className="text-xs font-medium text-primary">16 credits</span>
+        </div>
 
         {/* Basic details */}
-        <Flex
-          as="button"
-          onClick={() => onDetailOptionsChange({ ...detailOptions, basicDetails: !detailOptions.basicDetails })}
-          w="full"
-          align="center"
-          gap={3}
-          p={4}
-          rounded="xl"
-          border="2px solid"
-          borderColor={detailOptions.basicDetails ? "blue.500" : "brand.surface"}
-          bg={detailOptions.basicDetails ? "rgba(59,130,246,0.1)" : "brand.surface"}
-          transition="all 0.2s"
-          _hover={{ borderColor: detailOptions.basicDetails ? "blue.500" : "brand.muted" }}
-          textAlign="left"
+        <button
+          onClick={() =>
+            onDetailOptionsChange({ ...detailOptions, basicDetails: !detailOptions.basicDetails })
+          }
+          className={cn(
+            "w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left",
+            detailOptions.basicDetails
+              ? "border-primary bg-primary/10"
+              : "border-border bg-card hover:border-muted-foreground/40"
+          )}
         >
-          <Flex
-            h="20px" w="20px" rounded="md" border="1px solid"
-            borderColor={detailOptions.basicDetails ? "blue.500" : "brand.muted"}
-            bg={detailOptions.basicDetails ? "blue.500" : "transparent"}
-            align="center" justify="center" flexShrink={0}
-          >
-            {detailOptions.basicDetails && <Check size={12} color="white" />}
-          </Flex>
-          <Box flex={1}>
-            <Text fontSize="sm" fontWeight="semibold" color="brand.accent">기본 상세컷 3장</Text>
-            <Text fontSize="xs" color="brand.muted">정면, 측면, 45도 앵글 등 범용 구도</Text>
-          </Box>
-          <Text fontSize="xs" fontWeight="medium" color="brand.muted">32 credits</Text>
-        </Flex>
+          <div className={cn(
+            "h-5 w-5 rounded border flex items-center justify-center shrink-0",
+            detailOptions.basicDetails ? "bg-primary border-primary" : "border-muted-foreground/40"
+          )}>
+            {detailOptions.basicDetails && <Check className="h-3 w-3 text-primary-foreground" />}
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">기본 상세컷 3장</p>
+            <p className="text-xs text-muted-foreground">정면, 측면, 45도 앵글 등 범용 구도</p>
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">32 credits</span>
+        </button>
 
         {/* AI recommended */}
-        <Flex
-          as="button"
-          onClick={() => onDetailOptionsChange({
-            ...detailOptions,
-            aiRecommended: !detailOptions.aiRecommended,
-            selectedAIDetails: !detailOptions.aiRecommended ? ["case-open", "wearing-side", "touch-closeup"] : detailOptions.selectedAIDetails,
-          })}
-          w="full"
-          align="center"
-          gap={3}
-          p={4}
-          rounded="xl"
-          border="2px solid"
-          borderColor={detailOptions.aiRecommended ? "blue.500" : "brand.surface"}
-          bg={detailOptions.aiRecommended ? "rgba(59,130,246,0.1)" : "brand.surface"}
-          transition="all 0.2s"
-          _hover={{ borderColor: detailOptions.aiRecommended ? "blue.500" : "brand.muted" }}
-          textAlign="left"
+        <button
+          onClick={() =>
+            onDetailOptionsChange({
+              ...detailOptions,
+              aiRecommended: !detailOptions.aiRecommended,
+              selectedAIDetails: !detailOptions.aiRecommended
+                ? ["case-open", "wearing-side", "touch-closeup"]
+                : detailOptions.selectedAIDetails,
+            })
+          }
+          className={cn(
+            "w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left",
+            detailOptions.aiRecommended
+              ? "border-primary bg-primary/10"
+              : "border-border bg-card hover:border-muted-foreground/40"
+          )}
         >
-          <Flex
-            h="20px" w="20px" rounded="md" border="1px solid"
-            borderColor={detailOptions.aiRecommended ? "blue.500" : "brand.muted"}
-            bg={detailOptions.aiRecommended ? "blue.500" : "transparent"}
-            align="center" justify="center" flexShrink={0}
-          >
-            {detailOptions.aiRecommended && <Check size={12} color="white" />}
-          </Flex>
-          <Box flex={1}>
-            <Flex align="center" gap={1.5}>
-              <Text fontSize="sm" fontWeight="semibold" color="brand.accent">AI 추천 상세컷</Text>
-              <Sparkles size={14} color="#3b82f6" />
-            </Flex>
-            <Text fontSize="xs" color="brand.muted">AI가 제품에 맞는 상세컷을 자동 제안</Text>
-          </Box>
-          <Text fontSize="xs" fontWeight="medium" color="brand.muted">~30 credits</Text>
-        </Flex>
+          <div className={cn(
+            "h-5 w-5 rounded border flex items-center justify-center shrink-0",
+            detailOptions.aiRecommended ? "bg-primary border-primary" : "border-muted-foreground/40"
+          )}>
+            {detailOptions.aiRecommended && <Check className="h-3 w-3 text-primary-foreground" />}
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              AI 추천 상세컷
+            </p>
+            <p className="text-xs text-muted-foreground">AI가 제품에 맞는 상세컷을 자동 제안</p>
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">~30 credits</span>
+        </button>
 
+        {/* AI recommendation details */}
         {detailOptions.aiRecommended && (
           <AIRecommendation
             selectedDetails={detailOptions.selectedAIDetails}
-            onSelectedChange={(details) => onDetailOptionsChange({ ...detailOptions, selectedAIDetails: details })}
+            onSelectedChange={(details) =>
+              onDetailOptionsChange({ ...detailOptions, selectedAIDetails: details })
+            }
           />
         )}
-      </VStack>
+      </div>
 
-      <Flex direction="column" align="center" gap={3}>
-        <Flex align="center" gap={3}>
-          <Button variant="outline" onClick={onBack} borderColor="brand.surface" color="brand.text" _hover={{ bg: "brand.surface" }}>이전</Button>
-          <Button onClick={onGenerate} colorScheme="blue" px={8} boxShadow="0 0 16px rgba(59, 130, 246, 0.35)">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={onBack}>이전</Button>
+          <Button onClick={onGenerate} variant="glow" className="px-8">
             생성하기 · {totalCredits} credits
           </Button>
-        </Flex>
-        <Text as="button" fontSize="xs" color="blue.400" _hover={{ textDecoration: "underline" }}>
+        </div>
+        <button className="text-xs text-primary hover:underline underline-offset-2">
           더 많은 실행 횟수 얻기
-        </Text>
-      </Flex>
-    </Flex>
+        </button>
+      </div>
+    </div>
   );
 }

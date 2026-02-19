@@ -1,5 +1,5 @@
-import { Box, Checkbox, Flex, Text, VStack } from "@chakra-ui/react";
 import { Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const MOCK_AI_RECOMMENDATIONS = {
   category: "무선 이어폰",
@@ -26,32 +26,31 @@ export function AIRecommendation({ selectedDetails, onSelectedChange }: AIRecomm
   };
 
   return (
-    <Box rounded="xl" border="1px solid" borderColor="rgba(59,130,246,0.3)" bg="rgba(59,130,246,0.05)" p={4} w="full">
-      <VStack spacing={3} align="start">
-        <Flex align="center" gap={2}>
-          <Sparkles size={16} color="#3b82f6" />
-          <Text fontSize="sm" fontWeight="semibold" color="blue.400">AI가 이 제품을 분석했어요</Text>
-        </Flex>
-        <Text fontSize="xs" color="brand.muted">
-          제품 카테고리: <Text as="span" color="brand.accent" fontWeight="medium">{MOCK_AI_RECOMMENDATIONS.category}</Text>
-        </Text>
-        <VStack spacing={2} align="start" w="full">
-          <Text fontSize="xs" fontWeight="medium" color="brand.muted">추천 상세컷:</Text>
-          {MOCK_AI_RECOMMENDATIONS.details.map((detail) => (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <span className="text-sm font-semibold text-primary">AI가 이 제품을 분석했어요</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        제품 카테고리: <span className="text-foreground font-medium">{MOCK_AI_RECOMMENDATIONS.category}</span>
+      </p>
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">추천 상세컷:</p>
+        {MOCK_AI_RECOMMENDATIONS.details.map((detail) => (
+          <label
+            key={detail.id}
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
             <Checkbox
-              key={detail.id}
-              isChecked={selectedDetails.includes(detail.id)}
-              onChange={() => toggleDetail(detail.id)}
-              colorScheme="blue"
-              size="sm"
-            >
-              <Text fontSize="sm" color="brand.text" _hover={{ color: "brand.accent" }} transition="color 0.2s">
-                {detail.label}
-              </Text>
-            </Checkbox>
-          ))}
-        </VStack>
-      </VStack>
-    </Box>
+              checked={selectedDetails.includes(detail.id)}
+              onCheckedChange={() => toggleDetail(detail.id)}
+            />
+            <span className="text-sm group-hover:text-foreground transition-colors">
+              {detail.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }

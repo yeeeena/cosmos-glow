@@ -1,5 +1,5 @@
-import { Box, Flex, Text } from "@chakra-ui/react";
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StepIndicatorProps {
   currentStep: number;
@@ -8,51 +8,47 @@ interface StepIndicatorProps {
 
 export function StepIndicator({ currentStep, steps }: StepIndicatorProps) {
   return (
-    <Flex align="center" gap={1.5}>
+    <div className="flex items-center gap-1.5">
       {steps.map((step, i) => {
         const stepNum = i + 1;
         const isActive = stepNum === currentStep;
         const isCompleted = stepNum < currentStep;
 
         return (
-          <Flex key={i} align="center" gap={1.5}>
+          <div key={i} className="flex items-center gap-1.5">
             {i > 0 && (
-              <Box
-                h="1px"
-                w="24px"
-                transition="background 0.2s"
-                bg={isCompleted ? "blue.400" : "brand.surface"}
+              <div
+                className={cn(
+                  "h-px w-6 transition-colors",
+                  isCompleted ? "bg-primary/60" : "bg-border/50"
+                )}
               />
             )}
-            <Flex align="center" gap={1.5}>
-              <Flex
-                h="24px"
-                w="24px"
-                rounded="full"
-                align="center"
-                justify="center"
-                fontSize="10px"
-                fontWeight="semibold"
-                transition="all 0.2s"
-                bg={isActive || isCompleted ? "blue.500" : "brand.surface"}
-                color={isActive || isCompleted ? "white" : "brand.muted"}
+            <div className="flex items-center gap-1.5">
+              <div
+                className={cn(
+                  "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold transition-all",
+                  isActive && "bg-primary text-primary-foreground",
+                  isCompleted && "bg-primary/80 text-primary-foreground",
+                  !isActive && !isCompleted && "bg-muted/50 text-muted-foreground"
+                )}
               >
-                {isCompleted ? <Check size={12} /> : stepNum}
-              </Flex>
-              <Box display={{ base: "none", sm: "block" }}>
-                <Text
-                  fontSize="11px"
-                  fontWeight="medium"
-                  lineHeight="none"
-                  color={isActive ? "brand.accent" : "brand.muted"}
+                {isCompleted ? <Check className="h-3 w-3" /> : stepNum}
+              </div>
+              <div className="hidden sm:block">
+                <p
+                  className={cn(
+                    "text-[11px] font-medium leading-none",
+                    isActive ? "text-foreground" : "text-muted-foreground/70"
+                  )}
                 >
                   {step.label}
-                </Text>
-              </Box>
-            </Flex>
-          </Flex>
+                </p>
+              </div>
+            </div>
+          </div>
         );
       })}
-    </Flex>
+    </div>
   );
 }

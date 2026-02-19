@@ -18,12 +18,4 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  optimizeDeps: {
-    include: [
-      "@chakra-ui/react",
-      "@emotion/react",
-      "@emotion/styled",
-      "framer-motion",
-    ],
-  },
 }));
