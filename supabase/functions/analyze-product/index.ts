@@ -27,23 +27,23 @@ Texture selection rules:
 Return ONLY the JSON. No markdown, no explanation.`;
 
 const TEXTURE_PHRASES: Record<string, string> = {
-  foam_lather: "rich foam lather texture surrounding the product",
-  cream_swirl: "luxurious cream swirl texture flowing around the product",
-  gel_oil_drip: "transparent gel oil drip texture cascading beside the product",
-  crystal_grain: "crystalline grain texture scattered around the product",
-  silk_drape: "soft silk drape texture elegantly wrapping near the product",
-  water_drops: "fresh water drops texture glistening on and around the product",
-  mochi_stretch: "viscous mochi stretch texture pulled from the product",
+  foam_lather: "entirely enveloped in billowing dense white foam forming a soft organic sculptural shape around the entire package, thick foam dripping down the sides in streams",
+  cream_swirl: "with a generous peaked swirl of thick white cream texture piled on top of the open lid, rich whipped texture with soft peaks, cream radiating outward on the surface",
+  gel_oil_drip: "with transparent gel oil dripping slowly from the pump head down all sides of the bottle in slow viscous streams, pooling in a glossy translucent puddle around the base",
+  crystal_grain: "partially buried in and surrounded by chunky coarse sea salt crystal granules overflowing around it, warm amber liquid dripping from a glass ledge below",
+  silk_drape: "placed on softly draped shiny silk satin fabric in complementary tones, the product rests on the flowing textile surface, elegant editorial still life",
+  water_drops: "surrounded by floating transparent circular water droplets and a curling ribbon of clear gel liquid, pure white background, minimal editorial",
+  mochi_stretch: "with thick stretchy mochi-textured cream being pulled upward by a wooden spatula stretching in a long viscous strand, hand holding spatula from above",
 };
 
 const BACKGROUND_PHRASES: Record<string, string> = {
-  foam_lather: "on a clean wet surface with subtle water ripples",
-  cream_swirl: "on a smooth marble surface with soft gradient background",
-  gel_oil_drip: "on a reflective glass surface with minimal background",
-  crystal_grain: "on a textured stone surface with natural tones",
-  silk_drape: "on a draped fabric surface with warm ambient light",
-  water_drops: "on a frosted glass surface with cool-toned background",
-  mochi_stretch: "on a smooth matte surface with neutral backdrop",
+  foam_lather: "soft grey gradient background",
+  cream_swirl: "pure white reflective surface, clean studio background",
+  gel_oil_drip: "soft blue-grey gradient background",
+  crystal_grain: "warm beige-grey gradient background",
+  silk_drape: "pastel complementary toned background",
+  water_drops: "pure white background",
+  mochi_stretch: "neutral soft grey background",
 };
 
 Deno.serve(async (req) => {

@@ -29,6 +29,32 @@ export interface TextureAnalysis {
   texture_reason_ko: string;
 }
 
+const TEXTURE_LABELS: Record<string, string> = {
+  foam_lather: "폼 래더",
+  cream_swirl: "크림 스월",
+  gel_oil_drip: "젤 드립",
+  crystal_grain: "크리스탈 그레인",
+  silk_drape: "실크 드레이프",
+  water_drops: "워터 드롭",
+  mochi_stretch: "모찌 스트레치",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  shampoo: "샴푸",
+  "body wash": "바디워시",
+  cleanser: "클렌저",
+  serum: "세럼",
+  ampoule: "앰플",
+  moisturizer: "모이스처라이저",
+  cream: "크림",
+  mask: "마스크",
+  scrub: "스크럽",
+  toner: "토너",
+  perfume: "퍼퓸",
+  "body oil": "바디오일",
+  other: "기타",
+};
+
 const CreatePage = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
@@ -51,7 +77,6 @@ const CreatePage = () => {
 
     setIsAnalyzing(true);
     try {
-      // Convert blob URL to base64
       const response = await fetch(productImage);
       const blob = await response.blob();
       const base64 = await new Promise<string>((resolve) => {
@@ -64,20 +89,20 @@ const CreatePage = () => {
         body: { imageBase64: base64 },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
       setTextureAnalysis(data.analysis);
       setGenerationPrompt(data.generationPrompt);
+
+      const categoryKo = CATEGORY_LABELS[data.analysis.product_category] || data.analysis.product_category;
+      const textureKo = TEXTURE_LABELS[data.analysis.selected_texture] || data.analysis.selected_texture;
+
       toast({
-        title: "제품 분석 완료",
+        title: `✓ ${categoryKo}(으)로 인식 — ${textureKo} 텍스처 자동 선택됨`,
         description: data.analysis.texture_reason_ko,
       });
+
       return true;
     } catch (e) {
       console.error("Texture analysis error:", e);
@@ -103,6 +128,8 @@ const CreatePage = () => {
   const handleGenerate = () => {
     setShowResult(true);
     setIsGenerating(true);
+    // TODO: pass generationPrompt to actual image generation API
+    console.log("Generation prompt:", generationPrompt);
     setTimeout(() => setIsGenerating(false), 3000);
   };
 
@@ -128,7 +155,24 @@ const CreatePage = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6 flex">
-        {showResult ? (
+        {/* Analyzing loading screen */}
+        {isAnalyzing ? (
+          <div className="flex flex-col items-center justify-center flex-1 gap-6">
+            <div className="relative h-16 w-16">
+              <div className="absolute inset-0 rounded-full border-4 border-muted" />
+              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-lg font-semibold">Gemini가 제품을 분석 중입니다...</p>
+              <p className="text-sm text-muted-foreground">
+                제품 특성에 맞는 텍스처를 자동으로 선택하고 있어요
+              </p>
+            </div>
+            <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+            </div>
+          </div>
+        ) : showResult ? (
           <ResultView isGenerating={isGenerating} onRestart={handleRestart} detailOptions={detailOptions} />
         ) : currentStep === 1 ? (
           <StepUpload
