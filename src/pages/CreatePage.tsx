@@ -71,12 +71,14 @@ const CreatePage = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [textureAnalysis, setTextureAnalysis] = useState<TextureAnalysis | null>(null);
   const [generationPrompt, setGenerationPrompt] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   const analyzeProductForTexture = async (): Promise<boolean> => {
     if (!productImage) return false;
 
     setIsAnalyzing(true);
     try {
+      // Convert image to base64
       const response = await fetch(productImage);
       const blob = await response.blob();
       const base64 = await new Promise<string>((resolve) => {
@@ -86,7 +88,7 @@ const CreatePage = () => {
       });
 
       const { data, error } = await supabase.functions.invoke("analyze-product", {
-        body: { imageBase64: base64 },
+        body: { action: "analyze", imageBase64: base64 },
       });
 
       if (error) throw new Error(error.message);
@@ -108,7 +110,7 @@ const CreatePage = () => {
       console.error("Texture analysis error:", e);
       toast({
         title: "분석 실패",
-        description: e instanceof Error ? e.message : "제품 분석 중 오류가 발생했습니다.",
+        description: "제품 분석에 실패했습니다. 다시 시도해주세요.",
         variant: "destructive",
       });
       return false;
@@ -125,12 +127,35 @@ const CreatePage = () => {
     setCurrentStep(3);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setShowResult(true);
     setIsGenerating(true);
-    // TODO: pass generationPrompt to actual image generation API
-    console.log("Generation prompt:", generationPrompt);
-    setTimeout(() => setIsGenerating(false), 3000);
+
+    try {
+      // If texture-concept style with a generation prompt, call Imagen 3
+      if (selectedStyle === "texture-concept" && generationPrompt) {
+        const { data, error } = await supabase.functions.invoke("analyze-product", {
+          body: { action: "generate", prompt: generationPrompt },
+        });
+
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+
+        setGeneratedImage(data.imageBase64);
+      } else {
+        // Other styles: placeholder delay
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    } catch (e) {
+      console.error("Image generation error:", e);
+      toast({
+        title: "생성 실패",
+        description: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleRestart = () => {
@@ -143,6 +168,7 @@ const CreatePage = () => {
     setIsGenerating(false);
     setTextureAnalysis(null);
     setGenerationPrompt(null);
+    setGeneratedImage(null);
   };
 
   return (
@@ -173,7 +199,12 @@ const CreatePage = () => {
             </div>
           </div>
         ) : showResult ? (
-          <ResultView isGenerating={isGenerating} onRestart={handleRestart} detailOptions={detailOptions} />
+          <ResultView
+            isGenerating={isGenerating}
+            onRestart={handleRestart}
+            detailOptions={detailOptions}
+            generatedImage={generatedImage}
+          />
         ) : currentStep === 1 ? (
           <StepUpload
             productImage={productImage}
