@@ -1,16 +1,16 @@
 import { useRef, forwardRef, useCallback } from "react";
+import { Box, Flex, Text, Image } from "@chakra-ui/react";
 import { ImagePlus, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface ImageUploadFieldProps {
   value?: string | null;
   onChange?: (url: string | null) => void;
   error?: boolean;
-  className?: string;
+  width?: string;
 }
 
 export const ImageUploadField = forwardRef<HTMLDivElement, ImageUploadFieldProps>(
-  ({ value, onChange, error, className }, ref) => {
+  ({ value, onChange, error, width }, ref) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = useCallback(
@@ -30,47 +30,79 @@ export const ImageUploadField = forwardRef<HTMLDivElement, ImageUploadFieldProps
     }, [onChange]);
 
     return (
-      <div ref={ref} className={cn("relative", className)}>
+      <Box ref={ref} position="relative" w={width}>
         <input
           ref={fileInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
-          className="hidden"
+          style={{ display: "none" }}
           onChange={handleFileChange}
         />
 
         {value ? (
-          <div className="relative group">
-            <img
+          <Box position="relative" role="group">
+            <Image
               src={value}
               alt="업로드된 이미지"
-              className="w-full aspect-square rounded-xl border border-border object-contain bg-card"
+              w="full"
+              sx={{ aspectRatio: "1" }}
+              rounded="xl"
+              border="1px solid"
+              borderColor="brand.surface"
+              objectFit="contain"
+              bg="brand.surface"
             />
-            <button
+            <Flex
+              as="button"
               type="button"
               onClick={removeImage}
-              className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
+              position="absolute"
+              top={2}
+              right={2}
+              h="28px"
+              w="28px"
+              rounded="full"
+              bg="rgba(27,27,27,0.8)"
+              backdropFilter="blur(4px)"
+              align="center"
+              justify="center"
+              opacity={0}
+              _groupHover={{ opacity: 1 }}
+              transition="opacity 0.2s"
+              _hover={{ bg: "red.500", color: "white" }}
+              color="brand.text"
             >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+              <X size={16} />
+            </Flex>
+          </Box>
         ) : (
-          <button
+          <Flex
+            as="button"
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "w-full aspect-square rounded-2xl border-2 border-dashed bg-card/50 flex flex-col items-center justify-center gap-3 text-muted-foreground hover:border-primary hover:text-primary transition-all hover:bg-primary/5 cursor-pointer",
-              error ? "border-destructive" : "border-border"
-            )}
+            w="full"
+            sx={{ aspectRatio: "1" }}
+            rounded="2xl"
+            border="2px dashed"
+            borderColor={error ? "red.500" : "brand.surface"}
+            bg="rgba(37,37,37,0.5)"
+            direction="column"
+            align="center"
+            justify="center"
+            gap={3}
+            color="brand.muted"
+            _hover={{ borderColor: "blue.500", color: "blue.400", bg: "rgba(59,130,246,0.05)" }}
+            transition="all 0.2s"
+            cursor="pointer"
           >
-            <ImagePlus className="h-10 w-10" />
-            <div className="text-center">
-              <p className="text-sm font-medium">클릭하여 업로드</p>
-              <p className="text-xs mt-1">PNG, JPG, WEBP</p>
-            </div>
-          </button>
+            <ImagePlus size={40} />
+            <Box textAlign="center">
+              <Text fontSize="sm" fontWeight="medium">클릭하여 업로드</Text>
+              <Text fontSize="xs" mt={1}>PNG, JPG, WEBP</Text>
+            </Box>
+          </Flex>
         )}
-      </div>
+      </Box>
     );
   }
 );

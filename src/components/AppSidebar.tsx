@@ -1,49 +1,61 @@
+import { Box, Flex, IconButton, Tooltip } from "@chakra-ui/react";
 import { Home, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function AppSidebar() {
   return (
-    <div className="flex flex-col items-center w-16 h-screen border-r border-border bg-sidebar py-4 gap-1 shrink-0">
+    <Flex
+      direction="column"
+      align="center"
+      w="64px"
+      h="100vh"
+      borderRight="1px solid"
+      borderColor="brand.surface"
+      bg="brand.bg"
+      py={4}
+      gap={1}
+      flexShrink={0}
+    >
       {/* Logo */}
-      <div className="flex items-center justify-center w-10 h-10 mb-4">
-        <span className="text-xl">🧪</span>
-      </div>
+      <Flex align="center" justify="center" w="40px" h="40px" mb={4}>
+        <Box fontSize="xl">🧪</Box>
+      </Flex>
 
       {/* Nav */}
-      <nav className="flex flex-col items-center gap-1 flex-1">
-        <Tooltip delayDuration={200}>
-          <TooltipTrigger asChild>
+      <Flex as="nav" direction="column" align="center" gap={1} flex={1}>
+        <Tooltip label="홈" placement="right" hasArrow openDelay={200}>
+          <Box>
             <NavLink
               to="/"
               end
-              className="flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-accent"
-              activeClassName="text-primary bg-primary/10"
+              className="flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200"
+              activeClassName="chakra-nav-active"
+              style={({ isActive }: { isActive: boolean }) => ({
+                color: isActive ? "#3b82f6" : "#6b6762",
+                backgroundColor: isActive ? "rgba(59,130,246,0.1)" : "transparent",
+              })}
             >
-              <Home className="h-5 w-5" />
+              <Home size={20} />
             </NavLink>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={8}>
-            <p>홈</p>
-          </TooltipContent>
+          </Box>
         </Tooltip>
 
-        <Tooltip delayDuration={200}>
-          <TooltipTrigger asChild>
+        <Tooltip label="컨셉샷 생성" placement="right" hasArrow openDelay={200}>
+          <Box>
             <NavLink
               to="/create"
-              className="flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-accent"
-              activeClassName="text-primary bg-primary/10"
+              className="flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200"
+              activeClassName="chakra-nav-active"
+              style={({ isActive }: { isActive: boolean }) => ({
+                color: isActive ? "#3b82f6" : "#6b6762",
+                backgroundColor: isActive ? "rgba(59,130,246,0.1)" : "transparent",
+              })}
             >
-              <Sparkles className="h-5 w-5" />
+              <Sparkles size={20} />
             </NavLink>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={8}>
-            <p>컨셉샷 생성</p>
-          </TooltipContent>
+          </Box>
         </Tooltip>
-      </nav>
-
-    </div>
+      </Flex>
+    </Flex>
   );
 }
