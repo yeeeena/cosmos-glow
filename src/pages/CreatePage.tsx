@@ -132,16 +132,32 @@ const CreatePage = () => {
     setIsGenerating(true);
 
     try {
-      // If texture-concept style with a generation prompt, call Imagen 3
+      // If texture-concept style with a generation prompt, call HF FLUX.1-schnell
       if (selectedStyle === "texture-concept" && generationPrompt) {
-        const { data, error } = await supabase.functions.invoke("analyze-product", {
-          body: { action: "generate", prompt: generationPrompt },
-        });
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/analyze-product`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": anonKey,
+              "Authorization": `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({ action: "generate", prompt: generationPrompt }),
+          }
+        );
 
-        setGeneratedImage(data.imageBase64);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "이미지 생성 실패");
+        }
+
+        const blob = new Blob([await res.arrayBuffer()], { type: "image/jpeg" });
+        const imageUrl = URL.createObjectURL(blob);
+        setGeneratedImage(imageUrl);
       } else {
         // Other styles: placeholder delay
         await new Promise((r) => setTimeout(r, 3000));

@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── ACTION: generate — Imagen 3으로 이미지 생성 ───
+    // ─── ACTION: generate — Hugging Face FLUX.1-schnell로 이미지 생성 ───
     if (action === "generate") {
       if (!prompt) {
         return new Response(
@@ -141,46 +141,43 @@ Deno.serve(async (req) => {
         );
       }
 
-      const imagenResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${GEMINI_API_KEY}`,
+      const HF_API_KEY = Deno.env.get("VITE_HF_API_KEY");
+      if (!HF_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Hugging Face API 키가 설정되지 않았습니다." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const hfResponse = await fetch(
+        "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            instances: [{ prompt }],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: "1:1",
-              safetyFilterLevel: "block_few",
-              personGeneration: "allow_adult",
-            },
-          }),
+          headers: {
+            "Authorization": `Bearer ${HF_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ inputs: prompt }),
         }
       );
 
-      if (!imagenResponse.ok) {
-        const errText = await imagenResponse.text();
-        console.error("Imagen 3 error:", imagenResponse.status, errText);
+      if (!hfResponse.ok) {
+        const errText = await hfResponse.text();
+        console.error("HF FLUX error:", hfResponse.status, errText);
         return new Response(
           JSON.stringify({ error: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const imagenData = await imagenResponse.json();
-      const generatedImageBase64 = imagenData?.predictions?.[0]?.bytesBase64Encoded;
+      const imageBuffer = await hfResponse.arrayBuffer();
 
-      if (!generatedImageBase64) {
-        return new Response(
-          JSON.stringify({ error: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ imageBase64: `data:image/png;base64,${generatedImageBase64}` }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(new Uint8Array(imageBuffer), {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "image/jpeg",
+        },
+      });
     }
 
     return new Response(
