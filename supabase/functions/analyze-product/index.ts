@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
         : `data:image/jpeg;base64,${imageBase64}`;
 
       const result = await callLovableAI({
-        model: "google/gemini-3-pro-image-preview",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -193,8 +193,12 @@ Deno.serve(async (req) => {
       // Extract image from multimodal response
       let imageDataUri: string | null = null;
       const choices = result.data?.choices;
-      if (choices?.[0]?.message?.content) {
-        const msgContent = choices[0].message.content;
+      const msgContent = choices?.[0]?.message?.content;
+
+      console.log("Generate response type:", typeof msgContent, "isArray:", Array.isArray(msgContent));
+      console.log("Generate response preview:", JSON.stringify(msgContent).slice(0, 500));
+
+      if (msgContent) {
         if (Array.isArray(msgContent)) {
           for (const part of msgContent) {
             if (part.type === "image_url" && part.image_url?.url) {
@@ -205,27 +209,20 @@ Deno.serve(async (req) => {
               imageDataUri = part.image.url;
               break;
             }
+            if (part.inline_data) {
+              imageDataUri = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`;
+              break;
+            }
           }
         } else if (typeof msgContent === "string" && msgContent.startsWith("data:")) {
           imageDataUri = msgContent;
         }
       }
 
-      // Also check inline_data format
       if (!imageDataUri) {
-        const parts = result.data?.choices?.[0]?.message?.content;
-        if (Array.isArray(parts)) {
-          for (const part of parts) {
-            if (part.inline_data) {
-              imageDataUri = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`;
-              break;
-            }
-          }
-        }
-      }
-
-      if (!imageDataUri) {
-        console.error("No image in response:", JSON.stringify(result.data).slice(0, 1000));
+        console.error("No image in response. Full response:", JSON.stringify(result.data).slice(0, 2000));
+        console.error("Finish reason:", choices?.[0]?.finish_reason);
+        console.error("Message role:", choices?.[0]?.message?.role);
         return new Response(
           JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
