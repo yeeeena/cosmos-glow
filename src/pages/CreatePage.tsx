@@ -78,6 +78,7 @@ const CreatePage = () => {
   const [textureAnalysis, setTextureAnalysis] = useState<TextureAnalysis | null>(null);
   const [generationPrompt, setGenerationPrompt] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [referenceAnalysis, setReferenceAnalysis] = useState<Record<string, string> | null>(null);
 
   const analyzeProductForTexture = async (): Promise<boolean> => {
     if (!productImage) return false;
@@ -125,12 +126,52 @@ const CreatePage = () => {
     }
   };
 
+  const analyzeReference = async (): Promise<boolean> => {
+    if (!referenceImage) return false;
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch(referenceImage);
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      const { data, error } = await supabase.functions.invoke("analyze-product", {
+        body: { action: "analyze-reference", imageBase64: base64 },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      setReferenceAnalysis(data.referenceAnalysis);
+      toast({
+        title: "✓ 레퍼런스 배경 분석 완료",
+        description: `분위기: ${data.referenceAnalysis.mood}`,
+      });
+      return true;
+    } catch (e) {
+      console.error("Reference analysis error:", e);
+      toast({
+        title: "분석 실패",
+        description: "레퍼런스 분석에 실패했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleStyleNext = async () => {
     if (selectedStyle === "texture-concept") {
       const success = await analyzeProductForTexture();
       if (!success) return;
+    } else if (selectedStyle === "custom") {
+      const success = await analyzeReference();
+      if (!success) return;
     }
-    // darklight-studio doesn't need pre-analysis, goes straight to step 3
     setCurrentStep(3);
   };
 
@@ -153,6 +194,31 @@ const CreatePage = () => {
 
         const { data, error } = await supabase.functions.invoke("analyze-product", {
           body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64, aspectRatio: detailOptions.mainAspectRatio },
+        });
+
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+
+        setGeneratedImage(data.imageDataUri);
+      } else if (selectedStyle === "custom" && productImage && referenceImage && referenceAnalysis) {
+        // Convert both images to base64
+        const [prodResp, refResp] = await Promise.all([fetch(productImage), fetch(referenceImage)]);
+        const [prodBlob, refBlob] = await Promise.all([prodResp.blob(), refResp.blob()]);
+        const [prodBase64, refBase64] = await Promise.all([
+          new Promise<string>((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result as string); r.readAsDataURL(prodBlob); }),
+          new Promise<string>((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result as string); r.readAsDataURL(refBlob); }),
+        ]);
+
+        const { data, error } = await supabase.functions.invoke("analyze-product", {
+          body: {
+            action: "generate",
+            prompt: "Product composite photography with reference scene.",
+            productImageBase64: prodBase64,
+            referenceImageBase64: refBase64,
+            referenceAnalysis,
+            aspectRatio: detailOptions.mainAspectRatio,
+          },
         });
 
         if (error) throw new Error(error.message);
@@ -197,6 +263,7 @@ const CreatePage = () => {
     setTextureAnalysis(null);
     setGenerationPrompt(null);
     setGeneratedImage(null);
+    setReferenceAnalysis(null);
   };
 
   return (
@@ -217,9 +284,13 @@ const CreatePage = () => {
               <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
             </div>
             <div className="text-center space-y-1">
-              <p className="text-lg font-semibold">Gemini가 제품을 분석 중입니다...</p>
+              <p className="text-lg font-semibold">
+                {selectedStyle === "custom" ? "AI가 레퍼런스를 분석 중입니다..." : "AI가 제품을 분석 중입니다..."}
+              </p>
               <p className="text-sm text-muted-foreground">
-                제품 특성에 맞는 텍스처를 자동으로 선택하고 있어요
+                {selectedStyle === "custom"
+                  ? "레퍼런스 이미지의 배경 컨셉을 추출하고 있어요"
+                  : "제품 특성에 맞는 텍스처를 자동으로 선택하고 있어요"}
               </p>
             </div>
             <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">

@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, imageBase64, prompt } = body;
+    const { action, imageBase64, prompt, referenceImageBase64, referenceAnalysis } = body;
 
     // ─── ACTION: analyze ───
     if (action === "analyze") {
@@ -160,6 +160,80 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ─── ACTION: analyze-reference ───
+    if (action === "analyze-reference") {
+      if (!imageBase64) {
+        return new Response(
+          JSON.stringify({ error: "imageBase64 is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const dataUrl = imageBase64.startsWith("data:")
+        ? imageBase64
+        : `data:image/jpeg;base64,${imageBase64}`;
+
+      const refSystemPrompt = `You are a professional photography scene analyst.
+Analyze this reference image and describe the background concept in detail.
+Return ONLY a JSON object:
+{
+  "color_palette": "dominant colors and tones",
+  "lighting": "lighting style and direction",
+  "mood": "overall mood and atmosphere",
+  "environment": "background environment description",
+  "surface": "surface material the product should sit on"
+}
+Return ONLY the JSON. No markdown, no explanation.`;
+
+      const result = await callLovableAI({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: refSystemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: dataUrl } },
+              { type: "text", text: "Analyze this reference image." },
+            ],
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 500,
+      });
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(
+          JSON.stringify({ error: msg }),
+          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let content = result.data?.choices?.[0]?.message?.content || "";
+      content = content.trim();
+      if (content.startsWith("```")) {
+        content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      let refAnalysis;
+      try {
+        refAnalysis = JSON.parse(content);
+      } catch {
+        console.error("Reference analysis JSON parse error:", content);
+        return new Response(
+          JSON.stringify({ error: "레퍼런스 분석에 실패했습니다. 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ referenceAnalysis: refAnalysis }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ─── ACTION: generate ───
     if (action === "generate") {
       if (!prompt) {
@@ -180,7 +254,28 @@ Deno.serve(async (req) => {
       const ratioInstruction = body.aspectRatio ? (aspectRatioMap[body.aspectRatio] || "") : "";
       const finalPrompt = ratioInstruction ? `${prompt}, ${ratioInstruction}` : prompt;
 
-      // If productImageBase64 is provided, send it along with the prompt (for darklight-studio)
+      // Build prompt with reference analysis if available
+      let effectivePrompt = finalPrompt;
+      if (referenceAnalysis) {
+        effectivePrompt = `Product composite photography.
+Reference scene analysis:
+- Color palette: ${referenceAnalysis.color_palette}
+- Lighting: ${referenceAnalysis.lighting}
+- Mood: ${referenceAnalysis.mood}
+- Environment: ${referenceAnalysis.environment}
+- Surface: ${referenceAnalysis.surface}
+
+Place the product from the first image into a scene matching this reference analysis.
+Match the product's perspective, surface reflections, shadow direction and intensity
+to the light sources in the background.
+Reproduce all product label text and graphic elements sharply and without distortion.
+The final result must look like a single cohesive photograph with physically consistent
+lighting and material response throughout.
+Preserve all brand logos, text, labels, proportions exactly.
+No new text, no modifications to product structure. Photorealistic result.${ratioInstruction ? ` ${ratioInstruction}` : ""}`;
+      }
+
+      // Build userContent with images
       const userContent: unknown[] = [];
       if (body.productImageBase64) {
         const prodUrl = body.productImageBase64.startsWith("data:")
@@ -188,7 +283,13 @@ Deno.serve(async (req) => {
           : `data:image/jpeg;base64,${body.productImageBase64}`;
         userContent.push({ type: "image_url", image_url: { url: prodUrl } });
       }
-      userContent.push({ type: "text", text: finalPrompt });
+      if (referenceImageBase64) {
+        const refUrl = referenceImageBase64.startsWith("data:")
+          ? referenceImageBase64
+          : `data:image/jpeg;base64,${referenceImageBase64}`;
+        userContent.push({ type: "image_url", image_url: { url: refUrl } });
+      }
+      userContent.push({ type: "text", text: effectivePrompt });
 
       const result = await callLovableAI({
         model: "google/gemini-3-pro-image-preview",
