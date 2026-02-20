@@ -169,6 +169,17 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Build aspect ratio instruction
+      const aspectRatioMap: Record<string, string> = {
+        "1:1": "square 1:1 aspect ratio",
+        "9:16": "vertical portrait 9:16 aspect ratio",
+        "16:9": "horizontal landscape 16:9 aspect ratio",
+        "3:4": "vertical 3:4 aspect ratio",
+        "4:3": "horizontal 4:3 aspect ratio",
+      };
+      const ratioInstruction = body.aspectRatio ? (aspectRatioMap[body.aspectRatio] || "") : "";
+      const finalPrompt = ratioInstruction ? `${prompt}, ${ratioInstruction}` : prompt;
+
       // If productImageBase64 is provided, send it along with the prompt (for darklight-studio)
       const userContent: unknown[] = [];
       if (body.productImageBase64) {
@@ -177,7 +188,7 @@ Deno.serve(async (req) => {
           : `data:image/jpeg;base64,${body.productImageBase64}`;
         userContent.push({ type: "image_url", image_url: { url: prodUrl } });
       }
-      userContent.push({ type: "text", text: prompt });
+      userContent.push({ type: "text", text: finalPrompt });
 
       const result = await callLovableAI({
         model: "google/gemini-3-pro-image-preview",
