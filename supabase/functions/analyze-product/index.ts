@@ -169,47 +169,59 @@ Deno.serve(async (req) => {
         );
       }
 
-      const result = await callLovableAI({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 1,
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured");
+      }
+
+      const genResponse = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-pro-image-preview",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
       });
 
-      if (result.rateLimited) {
-        const msg = result.status === 429
-          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+      if (!genResponse.ok) {
+        if (genResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (genResponse.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const errText = await genResponse.text();
+        console.error("Image generation error:", genResponse.status, errText);
         return new Response(
-          JSON.stringify({ error: msg }),
-          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Extract image from response
+      const genData = await genResponse.json();
+      const imageUrl = genData?.data?.[0]?.url;
+      const imageB64 = genData?.data?.[0]?.b64_json;
+
       let imageDataUri: string | null = null;
-      const choices = result.data?.choices;
-      if (choices?.[0]?.message?.content) {
-        const msgContent = choices[0].message.content;
-        // Check if content is array (multimodal response)
-        if (Array.isArray(msgContent)) {
-          for (const part of msgContent) {
-            if (part.type === "image_url" && part.image_url?.url) {
-              imageDataUri = part.image_url.url;
-              break;
-            }
-          }
-        } else if (typeof msgContent === "string" && msgContent.startsWith("data:")) {
-          imageDataUri = msgContent;
-        }
+      if (imageB64) {
+        imageDataUri = `data:image/png;base64,${imageB64}`;
+      } else if (imageUrl) {
+        imageDataUri = imageUrl;
       }
 
       if (!imageDataUri) {
-        console.error("No image in response:", JSON.stringify(result.data).slice(0, 500));
+        console.error("No image in response:", JSON.stringify(genData).slice(0, 500));
         return new Response(
           JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
