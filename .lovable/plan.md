@@ -1,17 +1,49 @@
 
 
-## VITE_GEMINI_API_KEY 시크릿 업데이트
+# Lovable AI 게이트웨이로 전환
 
-### 작업 내용
-- 기존 `VITE_GEMINI_API_KEY` 시크릿 값을 새 Gemini API 키로 교체합니다.
-- 코드 변경은 없으며, 시크릿 값만 업데이트합니다.
+## 요약
+기존 Gemini API 직접 호출(VITE_GEMINI_API_KEY 사용)을 Lovable AI 게이트웨이(LOVABLE_API_KEY 자동 제공)로 전환합니다. 별도 API 키 관리가 필요 없어집니다.
 
-### 진행 순서
-1. `add_secret` 도구를 사용하여 새 API 키 입력을 요청합니다.
-2. 사용자가 새 키를 입력하면 자동으로 반영됩니다.
-3. Edge Function (`analyze-product`)이 즉시 새 키를 사용하게 됩니다.
+## 사용 모델
+- **제품 분석**: `google/gemini-3-flash-preview` (멀티모달 - 이미지+텍스트 입력, JSON 출력)
+- **이미지 생성**: `google/gemini-3-pro-image-preview` (텍스트 프롬프트 -> 이미지 생성)
 
-### 참고
-- 새 API 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 발급받을 수 있습니다.
-- 기존 키가 할당량 초과(429 에러) 상태이므로, 빌링이 활성화된 프로젝트의 키를 사용하는 것을 권장합니다.
+## 변경 사항
+
+### 1. Edge Function 전면 재작성 (`supabase/functions/analyze-product/index.ts`)
+
+**제거:**
+- `VITE_GEMINI_API_KEY` 환경변수 참조
+- `generativelanguage.googleapis.com` 직접 호출
+
+**변경:**
+- Lovable AI 게이트웨이 (`https://ai.gateway.lovable.dev/v1/chat/completions`) 사용
+- `LOVABLE_API_KEY` (자동 제공) 사용
+- OpenAI 호환 형식으로 요청 구성
+
+**analyze 액션:**
+- 모델: `google/gemini-3-flash-preview`
+- 이미지를 OpenAI 형식의 `image_url` content part로 전달 (base64 data URL)
+- 시스템 프롬프트는 기존과 동일 유지
+- 응답에서 JSON 파싱 후 텍스처 프롬프트 조합 로직 유지
+
+**generate 액션:**
+- 모델: `google/gemini-3-pro-image-preview`
+- 텍스트 프롬프트를 user message로 전달
+- 응답에서 이미지 데이터 추출
+
+### 2. config.toml 업데이트
+- `analyze-product` 함수에 `verify_jwt = false` 설정 추가
+
+### 3. 프론트엔드 (`src/pages/CreatePage.tsx`)
+- 코드 변경 없음 (이미 `supabase.functions.invoke` 사용 중)
+
+### 4. 에러 핸들링
+- 429 (Rate Limit) 및 402 (Payment Required) 에러를 감지하여 사용자에게 적절한 메시지 표시
+
+## 장점
+- API 키 만료/할당량 문제 해결
+- 별도 API 키 관리 불필요 (LOVABLE_API_KEY 자동 제공)
+- 최신 모델 사용 가능
 
