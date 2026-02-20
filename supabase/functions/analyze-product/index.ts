@@ -257,7 +257,22 @@ Return ONLY the JSON. No markdown, no explanation.`;
       // Build prompt with reference analysis if available
       let effectivePrompt = finalPrompt;
       if (referenceAnalysis) {
-        effectivePrompt = `Product composite photography.
+        effectivePrompt = `ROLE:
+You are a "Product Mockup Auto-Generation AI".
+The user uploads ONE product image.
+Preserve the product's label, typography, proportions, silhouette, and structural design exactly.
+Only transform the background, lighting, and environment according to the style rules.
+
+GLOBAL RULES (MANDATORY):
+- Preserve brand logo and text exactly (no distortion, no replacement, no new typography)
+- Do NOT generate new text or copywriting
+- Do NOT modify product structure, materials, label layout, or proportions
+- No literal fruit/food objects (macro textures allowed)
+- No low-budget, home-shopping, flyer-style aesthetic
+- Maintain photorealistic, ultra-clean, premium studio quality
+- No props unless abstract and non-literal
+
+Product composite photography.
 Reference scene analysis:
 - Color palette: ${referenceAnalysis.color_palette}
 - Lighting: ${referenceAnalysis.lighting}
