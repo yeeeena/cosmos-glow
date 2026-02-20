@@ -1,45 +1,35 @@
 
 
-# 레퍼런스 이미지 분석 + 합성 기능 추가 & 크레딧 UI 제거
+# 레퍼런스 업로드 합성 프롬프트 교체
 
-## 1. 크레딧 관련 UI 제거 (`src/components/create/StepOptions.tsx`)
+## 변경 내용
 
-- "16 credits", "32 credits", "~30 credits" 텍스트 모두 삭제
-- `totalCredits` 계산 로직 삭제
-- 생성하기 버튼: `생성하기 · {totalCredits} credits` -> `생성하기`
-- "더 많은 실행 횟수 얻기" 링크 삭제
+Edge Function (`supabase/functions/analyze-product/index.ts`)의 `generate` 액션에서 `referenceAnalysis`가 있을 때 사용되는 프롬프트(335~366번 줄)를 교체합니다.
 
-## 2. Edge Function에 `analyze-reference` 액션 추가 (`supabase/functions/analyze-product/index.ts`)
+## 현재 프롬프트 (교체 대상)
 
-**모델**: `google/gemini-3-flash-preview` (기존 analyze와 동일)
+현재는 ROLE + GLOBAL RULES + Reference scene analysis 데이터 + 합성 지시를 영문으로 구성하고 있습니다.
 
-레퍼런스 이미지를 받아 배경 컨셉을 영문 JSON으로 분석:
+## 새 프롬프트
 
-```text
-시스템 프롬프트 (영문):
-"You are a professional photography scene analyst.
-Analyze this reference image and describe the background concept in detail.
-Return ONLY a JSON object:
-{
-  "color_palette": "dominant colors and tones",
-  "lighting": "lighting style and direction",
-  "mood": "overall mood and atmosphere",
-  "environment": "background environment description",
-  "surface": "surface material the product should sit on"
-}
-Return ONLY the JSON. No markdown, no explanation."
-```
-
-응답 JSON을 파싱해서 `{ referenceAnalysis }` 반환
-
-## 3. Edge Function의 `generate` 액션 확장
-
-- `referenceImageBase64` 파라미터 추가 지원
-- `referenceAnalysis` 객체 파라미터 추가 지원
-- 두 값이 존재하면 아래 영문 프롬프트를 자동 구성:
+ROLE과 GLOBAL RULES는 그대로 유지하고, 그 아래 합성 지시 부분을 사용자가 요청한 내용으로 교체합니다. 전체 프롬프트는 영문으로 통일합니다:
 
 ```text
-Product composite photography.
+ROLE:
+You are a "Product Mockup Auto-Generation AI".
+The user uploads ONE product image.
+Preserve the product's label, typography, proportions, silhouette, and structural design exactly.
+Only transform the background, lighting, and environment according to the style rules.
+
+GLOBAL RULES (MANDATORY):
+- Preserve brand logo and text exactly (no distortion, no replacement, no new typography)
+- Do NOT generate new text or copywriting
+- Do NOT modify product structure, materials, label layout, or proportions
+- No literal fruit/food objects (macro textures allowed)
+- No low-budget, home-shopping, flyer-style aesthetic
+- Maintain photorealistic, ultra-clean, premium studio quality
+- No props unless abstract and non-literal
+
 Reference scene analysis:
 - Color palette: {color_palette}
 - Lighting: {lighting}
@@ -47,51 +37,24 @@ Reference scene analysis:
 - Environment: {environment}
 - Surface: {surface}
 
-Place the product from the first image into a scene matching this reference analysis.
+Composite the product image from Step 1 onto the reference image background.
+Replace any product in the reference image with the Step 1 product image, using only the background from the reference.
+
 Match the product's perspective, surface reflections, shadow direction and intensity
 to the light sources in the background.
 Reproduce all product label text and graphic elements sharply and without distortion.
 The final result must look like a single cohesive photograph with physically consistent
 lighting and material response throughout.
-Preserve all brand logos, text, labels, proportions exactly.
-No new text, no modifications to product structure. Photorealistic result.
 ```
 
-- `userContent` 배열: [제품 이미지, 레퍼런스 이미지, 텍스트 프롬프트]
-- 모델은 동일하게 `google/gemini-3-pro-image-preview` (Nanobanana Pro) 사용
+## 주요 변경 포인트
 
-## 4. 프론트엔드 로직 변경 (`src/pages/CreatePage.tsx`)
+- "레퍼런스 이미지에 있는 제품 대신에 Step 1 제품 이미지로 교체하고 배경만 활용" 지시를 영문으로 명확히 추가
+- 기존 Reference scene analysis 분석 데이터는 그대로 활용
+- ROLE + GLOBAL RULES 블록 유지
+- 프롬프트 전체 영문 통일
 
-**새 state 추가:**
-- `referenceAnalysis: object | null`
+## 변경 파일
 
-**`handleStyleNext` 변경:**
-- `selectedStyle === "custom"` 분기 추가
-- 레퍼런스 이미지를 base64로 변환 -> `analyze-reference` 액션 호출
-- 분석 결과를 `referenceAnalysis` state에 저장
-- 분석 중 로딩 화면 표시
+- `supabase/functions/analyze-product/index.ts` - generate 액션의 `effectivePrompt` 구성 부분 (335~366번 줄)
 
-**`handleGenerate` 변경:**
-- `selectedStyle === "custom"` 분기 추가
-- 제품 이미지 + 레퍼런스 이미지를 각각 base64로 변환
-- `referenceAnalysis` 데이터와 함께 `generate` 액션 호출
-
-**분석 로딩 텍스트 분기:**
-- texture-concept: "AI가 제품을 분석 중입니다..." / "제품 특성에 맞는 텍스처를 자동으로 선택하고 있어요"
-- custom: "AI가 레퍼런스를 분석 중입니다..." / "레퍼런스 이미지의 배경 컨셉을 추출하고 있어요"
-
-**`handleRestart` 변경:**
-- `referenceAnalysis`도 null로 초기화
-
-## 처리 플로우 요약
-
-```text
-Step 1: 제품 이미지 업로드
-Step 2: "직접 레퍼런스 업로드" 선택 + 레퍼런스 이미지 업로드
-  -> "다음" 클릭
-  -> gemini-3-flash-preview로 레퍼런스 배경 분석 (analyze-reference)
-  -> 분석 결과 저장
-Step 3: 비율 선택 + "생성하기" 클릭
-  -> 제품 이미지 + 레퍼런스 이미지 + 분석 결과를 generate에 전달
-  -> gemini-3-pro-image-preview (Nanobanana Pro)로 합성 이미지 생성
-```
