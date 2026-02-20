@@ -348,7 +348,6 @@ GLOBAL RULES (MANDATORY):
 - Maintain photorealistic, ultra-clean, premium studio quality
 - No props unless abstract and non-literal
 
-Product composite photography.
 Reference scene analysis:
 - Color palette: ${referenceAnalysis.color_palette}
 - Lighting: ${referenceAnalysis.lighting}
@@ -356,14 +355,14 @@ Reference scene analysis:
 - Environment: ${referenceAnalysis.environment}
 - Surface: ${referenceAnalysis.surface}
 
-Place the product from the first image into a scene matching this reference analysis.
+Composite the product image from Step 1 onto the reference image background.
+Replace any product in the reference image with the Step 1 product image, using only the background from the reference.
+
 Match the product's perspective, surface reflections, shadow direction and intensity
 to the light sources in the background.
 Reproduce all product label text and graphic elements sharply and without distortion.
 The final result must look like a single cohesive photograph with physically consistent
-lighting and material response throughout.
-Preserve all brand logos, text, labels, proportions exactly.
-No new text, no modifications to product structure. Photorealistic result.${ratioInstruction ? ` ${ratioInstruction}` : ""}`;
+lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruction}` : ""}`;
       }
 
       // Build userContent with images
