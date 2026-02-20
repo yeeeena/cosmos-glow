@@ -124,6 +124,7 @@ const CreatePage = () => {
       const success = await analyzeProductForTexture();
       if (!success) return;
     }
+    // darklight-studio doesn't need pre-analysis, goes straight to step 3
     setCurrentStep(3);
   };
 
@@ -132,8 +133,28 @@ const CreatePage = () => {
     setIsGenerating(true);
 
     try {
-      // If texture-concept style with a generation prompt, call HF FLUX.1-schnell
-      if (selectedStyle === "texture-concept" && generationPrompt) {
+      if (selectedStyle === "darklight-studio" && productImage) {
+        // Convert product image to base64 for darklight-studio
+        const resp = await fetch(productImage);
+        const blob = await resp.blob();
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+
+        const darklightPrompt = `Analyze this product's material (glass, metal, plastic, matte, etc.) and generate a premium studio product photograph. Place the product in a minimalist studio with a refined black-to-white gradient background on a clean reflective or matte surface. Use a Sony A7C II with 50mm macro lens, eye-level perspective. Apply material-aware lighting: controlled top key light, subtle directional side lighting, and soft rim light for silhouette separation. Preserve all brand logos, text, labels, proportions exactly. No new text, no props, no modifications to product structure. Photorealistic, ultra-clean, refined cinematic editorial, modern luxury campaign aesthetic.`;
+
+        const { data, error } = await supabase.functions.invoke("analyze-product", {
+          body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64 },
+        });
+
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+
+        setGeneratedImage(data.imageDataUri);
+      } else if (selectedStyle === "texture-concept" && generationPrompt) {
         const { data, error } = await supabase.functions.invoke("analyze-product", {
           body: { action: "generate", prompt: generationPrompt },
         });

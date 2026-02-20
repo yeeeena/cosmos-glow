@@ -169,14 +169,25 @@ Deno.serve(async (req) => {
         );
       }
 
+      // If productImageBase64 is provided, send it along with the prompt (for darklight-studio)
+      const userContent: unknown[] = [];
+      if (body.productImageBase64) {
+        const prodUrl = body.productImageBase64.startsWith("data:")
+          ? body.productImageBase64
+          : `data:image/jpeg;base64,${body.productImageBase64}`;
+        userContent.push({ type: "image_url", image_url: { url: prodUrl } });
+      }
+      userContent.push({ type: "text", text: prompt });
+
       const result = await callLovableAI({
         model: "google/gemini-3-pro-image-preview",
         messages: [
           {
             role: "user",
-            content: prompt,
+            content: userContent,
           },
         ],
+        modalities: ["image", "text"],
         temperature: 1,
       });
 
@@ -198,7 +209,14 @@ Deno.serve(async (req) => {
       console.log("Generate response type:", typeof msgContent, "isArray:", Array.isArray(msgContent));
       console.log("Generate response preview:", JSON.stringify(msgContent).slice(0, 500));
 
-      if (msgContent) {
+      // Check images array first (Lovable AI gateway format)
+      const images = choices?.[0]?.message?.images;
+      if (Array.isArray(images) && images.length > 0) {
+        imageDataUri = images[0]?.image_url?.url || null;
+      }
+
+      // Fallback: check content array
+      if (!imageDataUri && msgContent) {
         if (Array.isArray(msgContent)) {
           for (const part of msgContent) {
             if (part.type === "image_url" && part.image_url?.url) {
@@ -221,8 +239,6 @@ Deno.serve(async (req) => {
 
       if (!imageDataUri) {
         console.error("No image in response. Full response:", JSON.stringify(result.data).slice(0, 2000));
-        console.error("Finish reason:", choices?.[0]?.finish_reason);
-        console.error("Message role:", choices?.[0]?.message?.role);
         return new Response(
           JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -7,7 +7,7 @@ import styleMinimalStudio from "@/assets/style-minimal-studio.webp";
 import styleDynamicAngle from "@/assets/style-dynamic-angle.jpg";
 import styleNatureLifestyle from "@/assets/style-nature-lifestyle.jpg";
 import styleTechFuturistic from "@/assets/style-tech-futuristic.webp";
-import styleTextureConcept from "@/assets/style-texture-concept.png";
+import styleDarklightStudio from "@/assets/style-darklight-studio.png";
 const stylePresets = [
   {
     id: "minimal-studio",
@@ -34,10 +34,10 @@ const stylePresets = [
     thumbnail: styleTechFuturistic,
   },
   {
-    id: "texture-concept",
-    label: "텍스처 컨셉샷",
-    description: "성분 텍스처와 제품이 어우러지는 하이엔드 스튜디오샷",
-    thumbnail: styleTextureConcept,
+    id: "darklight-studio",
+    label: "다크라이트 스튜디오",
+    description: "어둠 속 드라마틱한 조명, 소재를 분석한 럭셔리 스튜디오샷",
+    thumbnail: styleDarklightStudio,
   },
 ];
 
