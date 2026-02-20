@@ -1,6 +1,6 @@
 import { Check, Image, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AIRecommendation, ShotsAnalysis } from "./AIRecommendation";
+import { AIRecommendation, type DetailRecommendation } from "./AIRecommendation";
 import { AspectRatioSelector } from "./AspectRatioSelector";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +18,7 @@ interface StepOptionsProps {
   onDetailOptionsChange: (opts: DetailOptions) => void;
   onGenerate: () => void;
   onBack: () => void;
-  shotsAnalysis?: ShotsAnalysis | null;
-  isShotsAnalyzing?: boolean;
+  detailRecommendation: DetailRecommendation | null;
 }
 
 export function StepOptions({
@@ -27,133 +26,134 @@ export function StepOptions({
   onDetailOptionsChange,
   onGenerate,
   onBack,
-  shotsAnalysis,
-  isShotsAnalyzing,
+  detailRecommendation,
 }: StepOptionsProps) {
   return (
     <div className="flex flex-col flex-1 gap-8">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">생성 옵션 선택</h2>
         <p className="text-muted-foreground text-sm">
-          제품에서 생성할 컷수를 선택하세요. 추가 상세컷을 포함할 수 있습니다.
+          메인 컨셉샷 1장은 필수로 포함됩니다. 추가 상세컷을 선택하세요.
         </p>
       </div>
 
-      <div className="flex flex-col gap-6">
-        {/* 기본 컷 옵션 */}
-        <div
-          className={cn(
-            "border rounded-xl p-4 cursor-pointer transition-all",
-            detailOptions.basicDetails ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
-          )}
-          onClick={() =>
-            onDetailOptionsChange({
-              ...detailOptions,
-              basicDetails: !detailOptions.basicDetails,
-            })
-          }
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                "w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5",
-                detailOptions.basicDetails ? "border-primary bg-primary" : "border-muted-foreground",
-              )}
-            >
-              {detailOptions.basicDetails && <Check className="w-3 h-3 text-primary-foreground" />}
+      <div className="max-w-lg mx-auto w-full space-y-4">
+        {/* Main shot - always included */}
+        <div className="p-4 rounded-xl border border-primary bg-primary/10 space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Image className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <Image className="w-4 h-4" />
-                <span className="font-medium">기본 상세컷</span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">제품의 기본적인 상세컷을 생성합니다</p>
-              {detailOptions.basicDetails && (
-                <div className="mt-3">
-                  <AspectRatioSelector
-                    value={detailOptions.basicAspectRatio}
-                    onChange={(val) =>
-                      onDetailOptionsChange({
-                        ...detailOptions,
-                        basicAspectRatio: val,
-                      })
-                    }
-                  />
-                </div>
-              )}
+              <p className="text-sm font-semibold">메인 컨셉샷 1장</p>
+              <p className="text-xs text-muted-foreground">필수 포함</p>
             </div>
           </div>
+          <AspectRatioSelector
+            value={detailOptions.mainAspectRatio}
+            onChange={(r) => onDetailOptionsChange({ ...detailOptions, mainAspectRatio: r })}
+          />
         </div>
 
-        {/* AI 추천 컷 옵션 */}
+        {/* Basic details */}
         <div
           className={cn(
-            "border rounded-xl p-4 cursor-pointer transition-all",
-            detailOptions.aiRecommended ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+            "rounded-xl border-2 transition-all",
+            detailOptions.basicDetails
+              ? "border-primary bg-primary/10"
+              : "border-border bg-card hover:border-muted-foreground/40"
           )}
-          onClick={() =>
-            onDetailOptionsChange({
-              ...detailOptions,
-              aiRecommended: !detailOptions.aiRecommended,
-            })
-          }
         >
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                "w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5",
-                detailOptions.aiRecommended ? "border-primary bg-primary" : "border-muted-foreground",
-              )}
-            >
-              {detailOptions.aiRecommended && <Check className="w-3 h-3 text-primary-foreground" />}
+          <button
+            onClick={() =>
+              onDetailOptionsChange({ ...detailOptions, basicDetails: !detailOptions.basicDetails })
+            }
+            className="w-full flex items-center gap-3 p-4 text-left"
+          >
+            <div className={cn(
+              "h-5 w-5 rounded border flex items-center justify-center shrink-0",
+              detailOptions.basicDetails ? "bg-primary border-primary" : "border-muted-foreground/40"
+            )}>
+              {detailOptions.basicDetails && <Check className="h-3 w-3 text-primary-foreground" />}
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="font-medium">AI 추천 상세컷</span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">AI가 제품을 분석하여 최적의 상세컷을 추천합니다</p>
-              {detailOptions.aiRecommended && (
-                <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                  <AspectRatioSelector
-                    value={detailOptions.aiAspectRatio}
-                    onChange={(val) =>
-                      onDetailOptionsChange({
-                        ...detailOptions,
-                        aiAspectRatio: val,
-                      })
-                    }
-                  />
-                  <div className="mt-4">
-                    <AIRecommendation
-                      shotsAnalysis={shotsAnalysis}
-                      isLoading={isShotsAnalyzing}
-                      selectedDetails={detailOptions.selectedAIDetails}
-                      onSelectedChange={(selected) =>
-                        onDetailOptionsChange({
-                          ...detailOptions,
-                          selectedAIDetails: selected,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              )}
+              <p className="text-sm font-semibold">기본 상세컷 3장</p>
+              <p className="text-xs text-muted-foreground">정면, 측면, 45도 앵글 등 범용 구도</p>
             </div>
-          </div>
+            
+          </button>
+          {detailOptions.basicDetails && (
+            <div className="px-4 pb-3">
+              <AspectRatioSelector
+                value={detailOptions.basicAspectRatio}
+                onChange={(r) => onDetailOptionsChange({ ...detailOptions, basicAspectRatio: r })}
+              />
+            </div>
+          )}
         </div>
+
+        {/* AI recommended */}
+        <div
+          className={cn(
+            "rounded-xl border-2 transition-all",
+            detailOptions.aiRecommended
+              ? "border-primary bg-primary/10"
+              : "border-border bg-card hover:border-muted-foreground/40"
+          )}
+        >
+          <button
+            onClick={() =>
+              onDetailOptionsChange({
+                ...detailOptions,
+                aiRecommended: !detailOptions.aiRecommended,
+                selectedAIDetails: !detailOptions.aiRecommended && detailRecommendation
+                  ? detailRecommendation.details.filter(d => d.defaultChecked).map(d => d.id)
+                  : detailOptions.selectedAIDetails,
+              })
+            }
+            className="w-full flex items-center gap-3 p-4 text-left"
+          >
+            <div className={cn(
+              "h-5 w-5 rounded border flex items-center justify-center shrink-0",
+              detailOptions.aiRecommended ? "bg-primary border-primary" : "border-muted-foreground/40"
+            )}>
+              {detailOptions.aiRecommended && <Check className="h-3 w-3 text-primary-foreground" />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                AI 추천 상세컷
+              </p>
+              <p className="text-xs text-muted-foreground">AI가 제품에 맞는 상세컷을 자동 제안</p>
+            </div>
+            
+          </button>
+          {detailOptions.aiRecommended && (
+            <div className="px-4 pb-3">
+              <AspectRatioSelector
+                value={detailOptions.aiAspectRatio}
+                onChange={(r) => onDetailOptionsChange({ ...detailOptions, aiAspectRatio: r })}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* AI recommendation details */}
+        {detailOptions.aiRecommended && (
+          <AIRecommendation
+            selectedDetails={detailOptions.selectedAIDetails}
+            onSelectedChange={(details) =>
+              onDetailOptionsChange({ ...detailOptions, selectedAIDetails: details })
+            }
+            recommendation={detailRecommendation}
+          />
+        )}
       </div>
 
-      <div className="flex gap-3 mt-auto">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          이전
-        </Button>
-        <Button
-          onClick={onGenerate}
-          className="flex-1"
-          disabled={!detailOptions.basicDetails && !detailOptions.aiRecommended}
-        >
-          컨셉샷 생성하기
+      <div className="flex items-center justify-center gap-3">
+        <Button variant="outline" onClick={onBack}>이전</Button>
+        <Button onClick={onGenerate} variant="glow" className="px-8">
+          생성하기
         </Button>
       </div>
     </div>
