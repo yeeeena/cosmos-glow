@@ -18,6 +18,9 @@ interface DetailOptions {
   basicDetails: boolean;
   aiRecommended: boolean;
   selectedAIDetails: string[];
+  mainAspectRatio: string;
+  basicAspectRatio: string;
+  aiAspectRatio: string;
 }
 
 export interface TextureAnalysis {
@@ -65,6 +68,9 @@ const CreatePage = () => {
     basicDetails: false,
     aiRecommended: false,
     selectedAIDetails: [],
+    mainAspectRatio: "1:1",
+    basicAspectRatio: "1:1",
+    aiAspectRatio: "1:1",
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -146,7 +152,7 @@ const CreatePage = () => {
         const darklightPrompt = `Analyze this product's material (glass, metal, plastic, matte, etc.) and generate a premium studio product photograph. Place the product in a minimalist studio with a refined black-to-white gradient background on a clean reflective or matte surface. Use a Sony A7C II with 50mm macro lens, eye-level perspective. Apply material-aware lighting: controlled top key light, subtle directional side lighting, and soft rim light for silhouette separation. Preserve all brand logos, text, labels, proportions exactly. No new text, no props, no modifications to product structure. Photorealistic, ultra-clean, refined cinematic editorial, modern luxury campaign aesthetic.`;
 
         const { data, error } = await supabase.functions.invoke("analyze-product", {
-          body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64 },
+          body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64, aspectRatio: detailOptions.mainAspectRatio },
         });
 
         if (error) throw new Error(error.message);
@@ -156,7 +162,7 @@ const CreatePage = () => {
         setGeneratedImage(data.imageDataUri);
       } else if (selectedStyle === "texture-concept" && generationPrompt) {
         const { data, error } = await supabase.functions.invoke("analyze-product", {
-          body: { action: "generate", prompt: generationPrompt },
+          body: { action: "generate", prompt: generationPrompt, aspectRatio: detailOptions.mainAspectRatio },
         });
 
         if (error) throw new Error(error.message);
@@ -185,7 +191,7 @@ const CreatePage = () => {
     setProductImage(null);
     setSelectedStyle(null);
     setReferenceImage(null);
-    setDetailOptions({ basicDetails: false, aiRecommended: false, selectedAIDetails: [] });
+    setDetailOptions({ basicDetails: false, aiRecommended: false, selectedAIDetails: [], mainAspectRatio: "1:1", basicAspectRatio: "1:1", aiAspectRatio: "1:1" });
     setShowResult(false);
     setIsGenerating(false);
     setTextureAnalysis(null);

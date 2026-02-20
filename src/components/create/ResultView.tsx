@@ -1,11 +1,23 @@
 import { Download, RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DetailOptions {
   basicDetails: boolean;
   aiRecommended: boolean;
   selectedAIDetails: string[];
+  mainAspectRatio: string;
+  basicAspectRatio: string;
+  aiAspectRatio: string;
 }
+
+const ASPECT_RATIO_CLASS: Record<string, string> = {
+  "1:1": "aspect-square",
+  "9:16": "aspect-[9/16]",
+  "16:9": "aspect-video",
+  "3:4": "aspect-[3/4]",
+  "4:3": "aspect-[4/3]",
+};
 
 interface ResultViewProps {
   isGenerating: boolean;
@@ -22,21 +34,21 @@ const AI_DETAIL_LABELS: Record<string, string> = {
 };
 
 function buildResults(options: DetailOptions) {
-  const results: { id: string; label: string; isMain?: boolean }[] = [
-    { id: "main", label: "메인 컨셉샷", isMain: true },
+  const results: { id: string; label: string; isMain?: boolean; type: "main" | "basic" | "ai" }[] = [
+    { id: "main", label: "메인 컨셉샷", isMain: true, type: "main" },
   ];
 
   if (options.basicDetails) {
     results.push(
-      { id: "basic-1", label: "정면 컷" },
-      { id: "basic-2", label: "측면 컷" },
-      { id: "basic-3", label: "45도 앵글 컷" },
+      { id: "basic-1", label: "정면 컷", type: "basic" },
+      { id: "basic-2", label: "측면 컷", type: "basic" },
+      { id: "basic-3", label: "45도 앵글 컷", type: "basic" },
     );
   }
 
   if (options.aiRecommended) {
     options.selectedAIDetails.forEach((id) => {
-      results.push({ id, label: AI_DETAIL_LABELS[id] || id });
+      results.push({ id, label: AI_DETAIL_LABELS[id] || id, type: "ai" });
     });
   }
 
@@ -79,7 +91,7 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
       {/* Main concept shot */}
       <div className="max-w-2xl mx-auto w-full">
         <div className="relative group">
-          <div className="aspect-[16/10] rounded-xl border border-border bg-card flex items-center justify-center overflow-hidden">
+          <div className={cn(ASPECT_RATIO_CLASS[detailOptions.mainAspectRatio] || "aspect-square", "rounded-xl border border-border bg-card flex items-center justify-center overflow-hidden")}>
             {generatedImage ? (
               <img src={generatedImage} alt="생성된 컨셉샷" className="w-full h-full object-contain" />
             ) : (
@@ -102,7 +114,10 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
         <div className="max-w-2xl mx-auto w-full grid grid-cols-3 gap-3">
           {detailResults.map((result) => (
             <div key={result.id} className="relative group">
-              <div className="aspect-square rounded-xl border border-border bg-card flex items-center justify-center">
+              <div className={cn(
+                ASPECT_RATIO_CLASS[result.type === "basic" ? detailOptions.basicAspectRatio : detailOptions.aiAspectRatio] || "aspect-square",
+                "rounded-xl border border-border bg-card flex items-center justify-center"
+              )}>
                 <p className="text-muted-foreground text-xs text-center px-2">{result.label}</p>
               </div>
               <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
