@@ -26,11 +26,6 @@ export function StepOptions({
   onGenerate,
   onBack,
 }: StepOptionsProps) {
-  const totalCredits =
-    16 +
-    (detailOptions.basicDetails ? 32 : 0) +
-    (detailOptions.aiRecommended ? detailOptions.selectedAIDetails.length * 10 : 0);
-
   return (
     <div className="flex flex-col flex-1 gap-8">
       <div className="text-center space-y-2">
@@ -51,7 +46,6 @@ export function StepOptions({
               <p className="text-sm font-semibold">메인 컨셉샷 1장</p>
               <p className="text-xs text-muted-foreground">필수 포함</p>
             </div>
-            <span className="text-xs font-medium text-primary">16 credits</span>
           </div>
           <AspectRatioSelector
             value={detailOptions.mainAspectRatio}
@@ -84,7 +78,7 @@ export function StepOptions({
               <p className="text-sm font-semibold">기본 상세컷 3장</p>
               <p className="text-xs text-muted-foreground">정면, 측면, 45도 앵글 등 범용 구도</p>
             </div>
-            <span className="text-xs font-medium text-muted-foreground">32 credits</span>
+            
           </button>
           {detailOptions.basicDetails && (
             <div className="px-4 pb-3">
@@ -130,7 +124,7 @@ export function StepOptions({
               </p>
               <p className="text-xs text-muted-foreground">AI가 제품에 맞는 상세컷을 자동 제안</p>
             </div>
-            <span className="text-xs font-medium text-muted-foreground">~30 credits</span>
+            
           </button>
           {detailOptions.aiRecommended && (
             <div className="px-4 pb-3">
@@ -153,16 +147,11 @@ export function StepOptions({
         )}
       </div>
 
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onBack}>이전</Button>
-          <Button onClick={onGenerate} variant="glow" className="px-8">
-            생성하기 · {totalCredits} credits
-          </Button>
-        </div>
-        <button className="text-xs text-primary hover:underline underline-offset-2">
-          더 많은 실행 횟수 얻기
-        </button>
+      <div className="flex items-center justify-center gap-3">
+        <Button variant="outline" onClick={onBack}>이전</Button>
+        <Button onClick={onGenerate} variant="glow" className="px-8">
+          생성하기
+        </Button>
       </div>
     </div>
   );
