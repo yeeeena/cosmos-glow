@@ -4,6 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
 const SYSTEM_PROMPT = `You are a beauty product photography expert. Analyze this product image and return ONLY a JSON object:
 {
   "container_color": "1~2 color words in English",
@@ -45,6 +47,36 @@ const BACKGROUND_PHRASES: Record<string, string> = {
   mochi_stretch: "neutral soft grey background",
 };
 
+async function callLovableAI(body: Record<string, unknown>) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    throw new Error("LOVABLE_API_KEY is not configured");
+  }
+
+  const response = await fetch(LOVABLE_AI_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      return { rateLimited: true, status: 429 };
+    }
+    if (response.status === 402) {
+      return { rateLimited: true, status: 402 };
+    }
+    const errText = await response.text();
+    console.error("Lovable AI error:", response.status, errText);
+    throw new Error(`AI gateway error: ${response.status}`);
+  }
+
+  return { data: await response.json(), rateLimited: false };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -54,15 +86,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, imageBase64, prompt } = body;
 
-    const GEMINI_API_KEY = Deno.env.get("VITE_GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Gemini API 키가 설정되지 않았습니다." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ─── ACTION: analyze — Gemini Vision으로 제품 분석 ───
+    // ─── ACTION: analyze ───
     if (action === "analyze") {
       if (!imageBase64) {
         return new Response(
@@ -71,50 +95,44 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Strip data URI prefix if present
-      const base64Data = imageBase64.startsWith("data:")
-        ? imageBase64.split(",")[1]
-        : imageBase64;
+      // Ensure proper data URL format
+      const dataUrl = imageBase64.startsWith("data:")
+        ? imageBase64
+        : `data:image/jpeg;base64,${imageBase64}`;
 
-      const visionResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
+      const result = await callLovableAI({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
               {
-                parts: [
-                  {
-                    inline_data: {
-                      mime_type: "image/jpeg",
-                      data: base64Data,
-                    },
-                  },
-                  { text: SYSTEM_PROMPT },
-                ],
+                type: "image_url",
+                image_url: { url: dataUrl },
+              },
+              {
+                type: "text",
+                text: "이 제품 이미지를 분석해주세요.",
               },
             ],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 500,
-            },
-          }),
-        }
-      );
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 500,
+      });
 
-      if (!visionResponse.ok) {
-        const errText = await visionResponse.text();
-        console.error("Gemini Vision error:", visionResponse.status, errText);
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
         return new Response(
-          JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: msg }),
+          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const visionData = await visionResponse.json();
-      let content = visionData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
+      let content = result.data?.choices?.[0]?.message?.content || "";
       content = content.trim();
       if (content.startsWith("```")) {
         content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
@@ -142,7 +160,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── ACTION: generate — Gemini 2.0 Flash 이미지 생성 ───
+    // ─── ACTION: generate ───
     if (action === "generate") {
       if (!prompt) {
         return new Response(
@@ -151,52 +169,49 @@ Deno.serve(async (req) => {
         );
       }
 
-      const genResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
-            generationConfig: {
-              responseModalities: ["IMAGE"],
-              temperature: 1,
-            },
-          }),
-        }
-      );
+      const result = await callLovableAI({
+        model: "google/gemini-3-pro-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 1,
+      });
 
-      if (!genResponse.ok) {
-        const errText = await genResponse.text();
-        console.error("Gemini Image Gen error:", genResponse.status, errText);
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
         return new Response(
-          JSON.stringify({ error: "이미지 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: msg }),
+          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const genData = await genResponse.json();
-
-      // Find the part with inlineData
+      // Extract image from response
       let imageDataUri: string | null = null;
-      const parts = genData?.candidates?.[0]?.content?.parts;
-      if (parts) {
-        for (const part of parts) {
-          if (part.inlineData) {
-            imageDataUri = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            break;
+      const choices = result.data?.choices;
+      if (choices?.[0]?.message?.content) {
+        const msgContent = choices[0].message.content;
+        // Check if content is array (multimodal response)
+        if (Array.isArray(msgContent)) {
+          for (const part of msgContent) {
+            if (part.type === "image_url" && part.image_url?.url) {
+              imageDataUri = part.image_url.url;
+              break;
+            }
           }
+        } else if (typeof msgContent === "string" && msgContent.startsWith("data:")) {
+          imageDataUri = msgContent;
         }
       }
 
       if (!imageDataUri) {
-        console.error("No image in Gemini response:", JSON.stringify(genData).slice(0, 500));
+        console.error("No image in response:", JSON.stringify(result.data).slice(0, 500));
         return new Response(
-          JSON.stringify({ error: "이미지 생성에 실패했습니다. 응답에서 이미지를 찾을 수 없습니다." }),
+          JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
