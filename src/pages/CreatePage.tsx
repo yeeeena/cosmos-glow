@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { DetailRecommendation } from "@/components/create/AIRecommendation";
 
 import { StepIndicator } from "@/components/create/StepIndicator";
 import { StepUpload } from "@/components/create/StepUpload";
@@ -79,6 +80,7 @@ const CreatePage = () => {
   const [generationPrompt, setGenerationPrompt] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [referenceAnalysis, setReferenceAnalysis] = useState<Record<string, string> | null>(null);
+  const [detailRecommendation, setDetailRecommendation] = useState<DetailRecommendation | null>(null);
 
   const analyzeProductForTexture = async (): Promise<boolean> => {
     if (!productImage) return false;
@@ -264,6 +266,7 @@ const CreatePage = () => {
     setGenerationPrompt(null);
     setGeneratedImage(null);
     setReferenceAnalysis(null);
+    setDetailRecommendation(null);
   };
 
   return (
@@ -285,10 +288,12 @@ const CreatePage = () => {
             </div>
             <div className="text-center space-y-1">
               <p className="text-lg font-semibold">
-                {selectedStyle === "custom" ? "AI가 레퍼런스를 분석 중입니다..." : "AI가 제품을 분석 중입니다..."}
+                {currentStep === 1 ? "AI가 제품을 분석 중입니다..." : selectedStyle === "custom" ? "AI가 레퍼런스를 분석 중입니다..." : "AI가 제품을 분석 중입니다..."}
               </p>
               <p className="text-sm text-muted-foreground">
-                {selectedStyle === "custom"
+                {currentStep === 1
+                  ? "제품에 맞는 최적의 상세컷을 추천하고 있어요"
+                  : selectedStyle === "custom"
                   ? "레퍼런스 이미지의 배경 컨셉을 추출하고 있어요"
                   : "제품 특성에 맞는 텍스처를 자동으로 선택하고 있어요"}
               </p>
@@ -308,7 +313,31 @@ const CreatePage = () => {
           <StepUpload
             productImage={productImage}
             onImageChange={setProductImage}
-            onNext={() => setCurrentStep(2)}
+            onNext={async () => {
+              if (productImage) {
+                setIsAnalyzing(true);
+                try {
+                  const resp = await fetch(productImage);
+                  const blob = await resp.blob();
+                  const base64 = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                  });
+                  const { data, error } = await supabase.functions.invoke("analyze-product", {
+                    body: { action: "analyze-details", imageBase64: base64 },
+                  });
+                  if (!error && data?.detailRecommendation) {
+                    setDetailRecommendation(data.detailRecommendation);
+                  }
+                } catch (e) {
+                  console.error("Detail analysis error:", e);
+                } finally {
+                  setIsAnalyzing(false);
+                }
+              }
+              setCurrentStep(2);
+            }}
           />
         ) : currentStep === 2 ? (
           <StepStyle
@@ -326,6 +355,7 @@ const CreatePage = () => {
             onDetailOptionsChange={setDetailOptions}
             onGenerate={handleGenerate}
             onBack={() => setCurrentStep(2)}
+            detailRecommendation={detailRecommendation}
           />
         )}
       </div>

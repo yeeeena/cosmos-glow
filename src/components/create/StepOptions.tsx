@@ -1,6 +1,6 @@
 import { Check, Image, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AIRecommendation } from "./AIRecommendation";
+import { AIRecommendation, type DetailRecommendation } from "./AIRecommendation";
 import { AspectRatioSelector } from "./AspectRatioSelector";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ interface StepOptionsProps {
   onDetailOptionsChange: (opts: DetailOptions) => void;
   onGenerate: () => void;
   onBack: () => void;
+  detailRecommendation: DetailRecommendation | null;
 }
 
 export function StepOptions({
@@ -25,6 +26,7 @@ export function StepOptions({
   onDetailOptionsChange,
   onGenerate,
   onBack,
+  detailRecommendation,
 }: StepOptionsProps) {
   return (
     <div className="flex flex-col flex-1 gap-8">
@@ -104,8 +106,8 @@ export function StepOptions({
               onDetailOptionsChange({
                 ...detailOptions,
                 aiRecommended: !detailOptions.aiRecommended,
-                selectedAIDetails: !detailOptions.aiRecommended
-                  ? ["case-open", "wearing-side", "touch-closeup"]
+                selectedAIDetails: !detailOptions.aiRecommended && detailRecommendation
+                  ? detailRecommendation.details.filter(d => d.defaultChecked).map(d => d.id)
                   : detailOptions.selectedAIDetails,
               })
             }
@@ -143,6 +145,7 @@ export function StepOptions({
             onSelectedChange={(details) =>
               onDetailOptionsChange({ ...detailOptions, selectedAIDetails: details })
             }
+            recommendation={detailRecommendation}
           />
         )}
       </div>

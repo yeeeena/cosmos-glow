@@ -160,6 +160,82 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ─── ACTION: analyze-details ───
+    if (action === "analyze-details") {
+      if (!imageBase64) {
+        return new Response(
+          JSON.stringify({ error: "imageBase64 is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const dataUrl = imageBase64.startsWith("data:")
+        ? imageBase64
+        : `data:image/jpeg;base64,${imageBase64}`;
+
+      const detailSystemPrompt = `You are a professional product photography planner.
+Analyze this product image and determine the product category and recommend 3-5 detail shots that would best showcase this product.
+Return ONLY a JSON object:
+{
+  "category": "product category in Korean (e.g. 무선 이어폰, 화장품, 스킨케어 등)",
+  "details": [
+    { "id": "unique-id", "label": "shot description in Korean", "defaultChecked": true },
+    ...
+  ]
+}
+Each detail shot should be specific to this product type. Use descriptive Korean labels.
+Mark the top 3 most important shots as defaultChecked: true, others as false.
+Return ONLY the JSON. No markdown, no explanation.`;
+
+      const result = await callLovableAI({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: detailSystemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: dataUrl } },
+              { type: "text", text: "이 제품 이미지를 분석하고 최적의 상세컷을 추천해주세요." },
+            ],
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 800,
+      });
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(
+          JSON.stringify({ error: msg }),
+          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let content = result.data?.choices?.[0]?.message?.content || "";
+      content = content.trim();
+      if (content.startsWith("```")) {
+        content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      let detailAnalysis;
+      try {
+        detailAnalysis = JSON.parse(content);
+      } catch {
+        console.error("Detail analysis JSON parse error:", content);
+        return new Response(
+          JSON.stringify({ error: "상세컷 분석에 실패했습니다. 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ detailRecommendation: detailAnalysis }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ─── ACTION: analyze-reference ───
     if (action === "analyze-reference") {
       if (!imageBase64) {
