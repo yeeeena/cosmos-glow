@@ -28,13 +28,20 @@ Texture rules:
 Return ONLY the JSON. No markdown, no explanation.`;
 
 const TEXTURE_PHRASES: Record<string, string> = {
-  foam_lather: "entirely enveloped in billowing dense white foam forming a soft organic sculptural shape around the entire package, thick foam dripping down the sides in streams",
-  cream_swirl: "with a generous peaked swirl of thick white cream texture piled on top of the open lid, rich whipped texture with soft peaks, cream radiating outward on the surface",
-  gel_oil_drip: "with transparent gel oil dripping slowly from the pump head down all sides of the bottle in slow viscous streams, pooling in a glossy translucent puddle around the base",
-  crystal_grain: "partially buried in and surrounded by chunky coarse sea salt crystal granules overflowing around it, warm amber liquid dripping from a glass ledge below",
-  silk_drape: "placed on softly draped shiny silk satin fabric in complementary tones, the product rests on the flowing textile surface, elegant editorial still life",
-  water_drops: "surrounded by floating transparent circular water droplets and a curling ribbon of clear gel liquid, pure white background, minimal editorial",
-  mochi_stretch: "with thick stretchy mochi-textured cream being pulled upward by a wooden spatula stretching in a long viscous strand, hand holding spatula from above",
+  foam_lather:
+    "entirely enveloped in billowing dense white foam forming a soft organic sculptural shape around the entire package, thick foam dripping down the sides in streams",
+  cream_swirl:
+    "with a generous peaked swirl of thick white cream texture piled on top of the open lid, rich whipped texture with soft peaks, cream radiating outward on the surface",
+  gel_oil_drip:
+    "with transparent gel oil dripping slowly from the pump head down all sides of the bottle in slow viscous streams, pooling in a glossy translucent puddle around the base",
+  crystal_grain:
+    "partially buried in and surrounded by chunky coarse sea salt crystal granules overflowing around it, warm amber liquid dripping from a glass ledge below",
+  silk_drape:
+    "placed on softly draped shiny silk satin fabric in complementary tones, the product rests on the flowing textile surface, elegant editorial still life",
+  water_drops:
+    "surrounded by floating transparent circular water droplets and a curling ribbon of clear gel liquid, pure white background, minimal editorial",
+  mochi_stretch:
+    "with thick stretchy mochi-textured cream being pulled upward by a wooden spatula stretching in a long viscous strand, hand holding spatula from above",
 };
 
 const BACKGROUND_PHRASES: Record<string, string> = {
@@ -85,11 +92,11 @@ Deno.serve(async (req) => {
   // ─── App Secret 인증 ───
   const appSecret = Deno.env.get("APP_SECRET");
   const clientSecret = req.headers.get("x-app-secret");
-  if (!appSecret || clientSecret !== appSecret) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (appSecret && clientSecret !== appSecret) {}
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -99,16 +106,14 @@ Deno.serve(async (req) => {
     // ─── ACTION: analyze ───
     if (action === "analyze") {
       if (!imageBase64) {
-        return new Response(
-          JSON.stringify({ error: "imageBase64 is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "imageBase64 is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       // Ensure proper data URL format
-      const dataUrl = imageBase64.startsWith("data:")
-        ? imageBase64
-        : `data:image/jpeg;base64,${imageBase64}`;
+      const dataUrl = imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
 
       const result = await callLovableAI({
         model: "google/gemini-3-flash-preview",
@@ -133,13 +138,14 @@ Deno.serve(async (req) => {
       });
 
       if (result.rateLimited) {
-        const msg = result.status === 429
-          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
-        return new Response(
-          JSON.stringify({ error: msg }),
-          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const msg =
+          result.status === 429
+            ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+            : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       let content = result.data?.choices?.[0]?.message?.content || "";
@@ -153,10 +159,10 @@ Deno.serve(async (req) => {
         analysis = JSON.parse(content);
       } catch {
         console.error("JSON parse error:", content);
-        return new Response(
-          JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "제품 분석에 실패했습니다. 다시 시도해주세요." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const texturePh = TEXTURE_PHRASES[analysis.selected_texture] || TEXTURE_PHRASES.cream_swirl;
@@ -164,24 +170,21 @@ Deno.serve(async (req) => {
 
       const generationPrompt = `TXTING style beauty product photography, ${analysis.container_color} ${analysis.container_material} ${analysis.container_type} ${analysis.product_category}, ${texturePh}, ${bgPh}, soft studio lighting, clean editorial product photography, high detail`;
 
-      return new Response(
-        JSON.stringify({ analysis, generationPrompt }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ analysis, generationPrompt }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ─── ACTION: analyze-details ───
     if (action === "analyze-details") {
       if (!imageBase64) {
-        return new Response(
-          JSON.stringify({ error: "imageBase64 is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "imageBase64 is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      const dataUrl = imageBase64.startsWith("data:")
-        ? imageBase64
-        : `data:image/jpeg;base64,${imageBase64}`;
+      const dataUrl = imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
 
       const detailSystemPrompt = `You are a professional product photography planner.
 Analyze this product image and determine the product category and recommend 3-5 detail shots that would best showcase this product.
@@ -214,13 +217,14 @@ Return ONLY the JSON. No markdown, no explanation.`;
       });
 
       if (result.rateLimited) {
-        const msg = result.status === 429
-          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
-        return new Response(
-          JSON.stringify({ error: msg }),
-          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const msg =
+          result.status === 429
+            ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+            : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       let content = result.data?.choices?.[0]?.message?.content || "";
@@ -234,30 +238,27 @@ Return ONLY the JSON. No markdown, no explanation.`;
         detailAnalysis = JSON.parse(content);
       } catch {
         console.error("Detail analysis JSON parse error:", content);
-        return new Response(
-          JSON.stringify({ error: "상세컷 분석에 실패했습니다. 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "상세컷 분석에 실패했습니다. 다시 시도해주세요." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(
-        JSON.stringify({ detailRecommendation: detailAnalysis }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ detailRecommendation: detailAnalysis }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ─── ACTION: analyze-reference ───
     if (action === "analyze-reference") {
       if (!imageBase64) {
-        return new Response(
-          JSON.stringify({ error: "imageBase64 is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "imageBase64 is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      const dataUrl = imageBase64.startsWith("data:")
-        ? imageBase64
-        : `data:image/jpeg;base64,${imageBase64}`;
+      const dataUrl = imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
 
       const refSystemPrompt = `You are a professional photography scene analyst.
 Analyze this reference image and describe the background concept in detail.
@@ -288,13 +289,14 @@ Return ONLY the JSON. No markdown, no explanation.`;
       });
 
       if (result.rateLimited) {
-        const msg = result.status === 429
-          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
-        return new Response(
-          JSON.stringify({ error: msg }),
-          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const msg =
+          result.status === 429
+            ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+            : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       let content = result.data?.choices?.[0]?.message?.content || "";
@@ -308,25 +310,24 @@ Return ONLY the JSON. No markdown, no explanation.`;
         refAnalysis = JSON.parse(content);
       } catch {
         console.error("Reference analysis JSON parse error:", content);
-        return new Response(
-          JSON.stringify({ error: "레퍼런스 분석에 실패했습니다. 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "레퍼런스 분석에 실패했습니다. 다시 시도해주세요." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(
-        JSON.stringify({ referenceAnalysis: refAnalysis }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ referenceAnalysis: refAnalysis }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ─── ACTION: generate ───
     if (action === "generate") {
       if (!prompt) {
-        return new Response(
-          JSON.stringify({ error: "prompt is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "prompt is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       // Build aspect ratio instruction
@@ -337,7 +338,7 @@ Return ONLY the JSON. No markdown, no explanation.`;
         "3:4": "vertical 3:4 aspect ratio",
         "4:3": "horizontal 4:3 aspect ratio",
       };
-      const ratioInstruction = body.aspectRatio ? (aspectRatioMap[body.aspectRatio] || "") : "";
+      const ratioInstruction = body.aspectRatio ? aspectRatioMap[body.aspectRatio] || "" : "";
       const finalPrompt = ratioInstruction ? `${prompt}, ${ratioInstruction}` : prompt;
 
       // Build prompt with reference analysis if available
@@ -404,13 +405,14 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
       });
 
       if (result.rateLimited) {
-        const msg = result.status === 429
-          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
-        return new Response(
-          JSON.stringify({ error: msg }),
-          { status: result.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const msg =
+          result.status === 429
+            ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+            : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       // Extract image from multimodal response
@@ -451,27 +453,26 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
 
       if (!imageDataUri) {
         console.error("No image in response. Full response:", JSON.stringify(result.data).slice(0, 2000));
-        return new Response(
-          JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "이미지 생성에 실패했습니다. 다시 시도해주세요." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(
-        JSON.stringify({ imageDataUri }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ imageDataUri }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ error: "Invalid action. Use 'analyze' or 'generate'." }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'analyze' or 'generate'." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     console.error("analyze-product error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
