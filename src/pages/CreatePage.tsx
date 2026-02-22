@@ -98,6 +98,7 @@ const CreatePage = () => {
 
       const { data, error } = await supabase.functions.invoke("analyze-product", {
         body: { action: "analyze", imageBase64: base64 },
+        headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
       });
 
       if (error) throw new Error(error.message);
@@ -142,6 +143,7 @@ const CreatePage = () => {
 
       const { data, error } = await supabase.functions.invoke("analyze-product", {
         body: { action: "analyze-reference", imageBase64: base64 },
+        headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
       });
 
       if (error) throw new Error(error.message);
@@ -196,6 +198,7 @@ const CreatePage = () => {
 
         const { data, error } = await supabase.functions.invoke("analyze-product", {
           body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64, aspectRatio: detailOptions.mainAspectRatio },
+          headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
         });
 
         if (error) throw new Error(error.message);
@@ -221,6 +224,7 @@ const CreatePage = () => {
             referenceAnalysis,
             aspectRatio: detailOptions.mainAspectRatio,
           },
+          headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
         });
 
         if (error) throw new Error(error.message);
@@ -231,6 +235,7 @@ const CreatePage = () => {
       } else if (selectedStyle === "texture-concept" && generationPrompt) {
         const { data, error } = await supabase.functions.invoke("analyze-product", {
           body: { action: "generate", prompt: generationPrompt, aspectRatio: detailOptions.mainAspectRatio },
+          headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
         });
 
         if (error) throw new Error(error.message);
@@ -326,6 +331,7 @@ const CreatePage = () => {
                   });
                   const { data, error } = await supabase.functions.invoke("analyze-product", {
                     body: { action: "analyze-details", imageBase64: base64 },
+                    headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
                   });
                   if (!error && data?.detailRecommendation) {
                     setDetailRecommendation(data.detailRecommendation);
