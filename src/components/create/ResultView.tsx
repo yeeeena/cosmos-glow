@@ -1,4 +1,4 @@
-import { Download, RefreshCw, ArrowLeft } from "lucide-react";
+import { Download, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -102,9 +102,6 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
             <button className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
               <Download className="h-4 w-4" />
             </button>
-            <button className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
-              <RefreshCw className="h-4 w-4" />
-            </button>
           </div>
         </div>
       </div>
@@ -123,9 +120,6 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
               <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
                   <Download className="h-3 w-3" />
-                </button>
-                <button className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
-                  <RefreshCw className="h-3 w-3" />
                 </button>
               </div>
             </div>
