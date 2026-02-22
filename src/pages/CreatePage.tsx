@@ -59,6 +59,29 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "기타",
 };
 
+/** Resize image to max 1024px using Canvas API to reduce payload size */
+const resizeImage = (dataUrl: string, maxSize = 1024): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const { width, height } = img;
+      if (width <= maxSize && height <= maxSize) {
+        resolve(dataUrl);
+        return;
+      }
+      const scale = maxSize / Math.max(width, height);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
 const CreatePage = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
@@ -87,14 +110,15 @@ const CreatePage = () => {
 
     setIsAnalyzing(true);
     try {
-      // Convert image to base64
+      // Convert image to base64 + resize
       const response = await fetch(productImage);
       const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
+      const rawBase64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
+      const base64 = await resizeImage(rawBase64);
 
       const { data, error } = await supabase.functions.invoke("analyze-product", {
         body: { action: "analyze", imageBase64: base64 },
@@ -135,11 +159,12 @@ const CreatePage = () => {
     try {
       const response = await fetch(referenceImage);
       const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
+      const rawBase64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
+      const base64 = await resizeImage(rawBase64);
 
       const { data, error } = await supabase.functions.invoke("analyze-product", {
         body: { action: "analyze-reference", imageBase64: base64 },
@@ -324,11 +349,12 @@ const CreatePage = () => {
                 try {
                   const resp = await fetch(productImage);
                   const blob = await resp.blob();
-                  const base64 = await new Promise<string>((resolve) => {
+                  const rawBase64 = await new Promise<string>((resolve) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve(reader.result as string);
                     reader.readAsDataURL(blob);
                   });
+                  const base64 = await resizeImage(rawBase64);
                   const { data, error } = await supabase.functions.invoke("analyze-product", {
                     body: { action: "analyze-details", imageBase64: base64 },
                     headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
@@ -338,6 +364,9 @@ const CreatePage = () => {
                   }
                 } catch (e) {
                   console.error("Detail analysis error:", e);
+                  if (e instanceof DOMException && e.name === "AbortError") {
+                    toast({ title: "분석 시간 초과", description: "상세컷 추천 없이 진행합니다.", variant: "destructive" });
+                  }
                 } finally {
                   setIsAnalyzing(false);
                 }
