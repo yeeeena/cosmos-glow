@@ -103,6 +103,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, imageBase64, prompt, referenceImageBase64, referenceAnalysis } = body;
 
+    console.log(`Action: ${action} started`);
+
     // ─── ACTION: analyze ───
     if (action === "analyze") {
       if (!imageBase64) {
@@ -115,6 +117,7 @@ Deno.serve(async (req) => {
       // Ensure proper data URL format
       const dataUrl = imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
 
+      console.log("AI call: analyze started");
       const result = await callLovableAI({
         model: "google/gemini-3-flash-preview",
         messages: [
@@ -136,6 +139,8 @@ Deno.serve(async (req) => {
         temperature: 0.1,
         max_tokens: 500,
       });
+
+      console.log("AI call: analyze completed");
 
       if (result.rateLimited) {
         const msg =
@@ -200,6 +205,7 @@ Each detail shot should be specific to this product type. Use descriptive Korean
 Mark the top 3 most important shots as defaultChecked: true, others as false.
 Return ONLY the JSON. No markdown, no explanation.`;
 
+      console.log("AI call: analyze-details started");
       const result = await callLovableAI({
         model: "google/gemini-3-flash-preview",
         messages: [
@@ -215,6 +221,8 @@ Return ONLY the JSON. No markdown, no explanation.`;
         temperature: 0.3,
         max_tokens: 800,
       });
+
+      console.log("AI call: analyze-details completed");
 
       if (result.rateLimited) {
         const msg =
@@ -272,6 +280,7 @@ Return ONLY a JSON object:
 }
 Return ONLY the JSON. No markdown, no explanation.`;
 
+      console.log("AI call: analyze-reference started");
       const result = await callLovableAI({
         model: "google/gemini-3-flash-preview",
         messages: [
@@ -287,6 +296,8 @@ Return ONLY the JSON. No markdown, no explanation.`;
         temperature: 0.1,
         max_tokens: 500,
       });
+
+      console.log("AI call: analyze-reference completed");
 
       if (result.rateLimited) {
         const msg =
