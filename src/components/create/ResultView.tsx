@@ -1,4 +1,5 @@
 import { Download, ArrowLeft } from "lucide-react";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,30 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
   const results = buildResults(detailOptions);
   const detailResults = results.filter((r) => !r.isMain);
 
+  const handleDownload = (dataUri: string, filename: string) => {
+    const link = document.createElement("a");
+    link.href = dataUri;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleZipDownload = async () => {
+    if (!generatedImage) return;
+    const zip = new JSZip();
+    const base64 = generatedImage.split(",")[1];
+    zip.file("concept-shot.png", base64, { base64: true });
+    const blob = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "conceptshot-images.zip";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
+
   if (isGenerating) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 gap-6">
@@ -99,7 +124,7 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
             )}
           </div>
           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+            <button onClick={() => generatedImage && handleDownload(generatedImage, "concept-shot.png")} className="h-8 w-8 rounded-lg bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
               <Download className="h-4 w-4" />
             </button>
           </div>
@@ -118,7 +143,7 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
                 <p className="text-muted-foreground text-xs text-center px-2">{result.label}</p>
               </div>
               <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+                <button onClick={() => generatedImage && handleDownload(generatedImage, `detail-${result.id}.png`)} className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
                   <Download className="h-3 w-3" />
                 </button>
               </div>
@@ -133,7 +158,7 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
           <ArrowLeft className="h-4 w-4 mr-2" />
           새로 만들기
         </Button>
-        <Button variant="glow" className="px-6">
+        <Button variant="glow" className="px-6" onClick={handleZipDownload}>
           <Download className="h-4 w-4 mr-2" />
           ZIP 다운로드
         </Button>
