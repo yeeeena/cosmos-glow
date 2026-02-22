@@ -1,60 +1,53 @@
 
 
-# 레퍼런스 업로드 합성 프롬프트 교체
+# 제품 분석 로딩 무한 대기 문제 해결
 
-## 변경 내용
+## 문제 원인
 
-Edge Function (`supabase/functions/analyze-product/index.ts`)의 `generate` 액션에서 `referenceAnalysis`가 있을 때 사용되는 프롬프트(335~366번 줄)를 교체합니다.
+1. **Edge Function 타임아웃**: `analyze-details` 액션이 AI 게이트웨이를 호출하는데, 큰 이미지(base64)를 보내면 AI 처리 시간이 Edge Function 타임아웃(150초)을 초과합니다.
+2. **클라이언트 타임아웃 없음**: `supabase.functions.invoke`는 기본적으로 무한 대기합니다. 응답이 안 오면 `isAnalyzing`이 영원히 `true`로 남아 로딩 화면이 사라지지 않습니다.
+3. **에러 처리 미흡**: 타임아웃 시 사용자에게 피드백이 없습니다.
 
-## 현재 프롬프트 (교체 대상)
+## 해결 방안
 
-현재는 ROLE + GLOBAL RULES + Reference scene analysis 데이터 + 합성 지시를 영문으로 구성하고 있습니다.
+### 1. 클라이언트: AbortController로 타임아웃 추가 (CreatePage.tsx)
 
-## 새 프롬프트
+`analyze-details` 호출에 60초 타임아웃을 설정합니다. 타임아웃 발생 시 분석 결과 없이 다음 단계로 진행하도록 합니다 (상세컷 추천은 선택 기능이므로).
 
-ROLE과 GLOBAL RULES는 그대로 유지하고, 그 아래 합성 지시 부분을 사용자가 요청한 내용으로 교체합니다. 전체 프롬프트는 영문으로 통일합니다:
+- StepUpload의 `onNext` 콜백에서 `supabase.functions.invoke` 호출 시 `AbortSignal.timeout(60000)` 사용
+- 타임아웃 발생 시 toast로 "분석 시간이 초과되었습니다" 안내 후 `setCurrentStep(2)`로 진행
+
+### 2. 이미지 리사이징으로 페이로드 축소
+
+업로드된 이미지를 서버로 보내기 전에 Canvas API로 최대 1024px로 리사이징합니다. 이렇게 하면:
+- base64 크기가 크게 줄어듦
+- AI 게이트웨이 처리 시간 단축
+- 타임아웃 가능성 감소
+
+`CreatePage.tsx`에 `resizeImage` 유틸 함수를 추가하고, `analyze-details`, `analyze` (texture), `analyze-reference` 호출 전에 모두 적용합니다.
+
+### 3. Edge Function: 로그 추가 (analyze-product/index.ts)
+
+디버깅을 위해 각 액션 시작/완료 시점에 `console.log`를 추가합니다.
+
+---
+
+## 기술 상세
+
+### CreatePage.tsx 변경 사항
 
 ```text
-ROLE:
-You are a "Product Mockup Auto-Generation AI".
-The user uploads ONE product image.
-Preserve the product's label, typography, proportions, silhouette, and structural design exactly.
-Only transform the background, lighting, and environment according to the style rules.
-
-GLOBAL RULES (MANDATORY):
-- Preserve brand logo and text exactly (no distortion, no replacement, no new typography)
-- Do NOT generate new text or copywriting
-- Do NOT modify product structure, materials, label layout, or proportions
-- No literal fruit/food objects (macro textures allowed)
-- No low-budget, home-shopping, flyer-style aesthetic
-- Maintain photorealistic, ultra-clean, premium studio quality
-- No props unless abstract and non-literal
-
-Reference scene analysis:
-- Color palette: {color_palette}
-- Lighting: {lighting}
-- Mood: {mood}
-- Environment: {environment}
-- Surface: {surface}
-
-Composite the product image from Step 1 onto the reference image background.
-Replace any product in the reference image with the Step 1 product image, using only the background from the reference.
-
-Match the product's perspective, surface reflections, shadow direction and intensity
-to the light sources in the background.
-Reproduce all product label text and graphic elements sharply and without distortion.
-The final result must look like a single cohesive photograph with physically consistent
-lighting and material response throughout.
+1. resizeImage 헬퍼 함수 추가 (Canvas API, 최대 1024px)
+2. StepUpload onNext: AbortSignal.timeout(60000) 추가 + catch에서 분석 실패 시에도 다음 단계 진행
+3. analyzeProductForTexture: 이미지 리사이즈 적용
+4. analyzeReference: 이미지 리사이즈 적용
 ```
 
-## 주요 변경 포인트
+### analyze-product/index.ts 변경 사항
 
-- "레퍼런스 이미지에 있는 제품 대신에 Step 1 제품 이미지로 교체하고 배경만 활용" 지시를 영문으로 명확히 추가
-- 기존 Reference scene analysis 분석 데이터는 그대로 활용
-- ROLE + GLOBAL RULES 블록 유지
-- 프롬프트 전체 영문 통일
+```text
+1. 각 action 진입 시 console.log 추가 (예: "Action: analyze-details started")
+2. AI 호출 전후 console.log 추가
+```
 
-## 변경 파일
-
-- `supabase/functions/analyze-product/index.ts` - generate 액션의 `effectivePrompt` 구성 부분 (335~366번 줄)
-
+이 수정으로 로딩이 무한 대기되는 문제가 해결되고, 이미지 리사이징으로 분석 성공률도 높아집니다.
