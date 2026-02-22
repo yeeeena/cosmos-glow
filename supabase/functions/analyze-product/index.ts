@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
   // ─── App Secret 인증 ───
   const appSecret = Deno.env.get("APP_SECRET");
   const clientSecret = req.headers.get("x-app-secret");
-    if (appSecret && clientSecret !== appSecret) {}
+    if (appSecret && clientSecret !== appSecret) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
