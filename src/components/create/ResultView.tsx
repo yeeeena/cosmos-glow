@@ -1,4 +1,4 @@
-import { Download, ArrowLeft } from "lucide-react";
+import { Download, ArrowLeft, Loader2 } from "lucide-react";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,8 @@ interface ResultViewProps {
   onRestart: () => void;
   detailOptions: DetailOptions;
   generatedImage?: string | null;
+  generatedDetailImages?: Record<string, string>;
+  detailGeneratingIndex?: number;
 }
 
 const AI_DETAIL_LABELS: Record<string, string> = {
@@ -34,6 +36,13 @@ const AI_DETAIL_LABELS: Record<string, string> = {
   "size-compare": "크기 비교 컷",
 };
 
+const BASIC_DETAIL_LABELS: Record<string, string> = {
+  "basic-1": "Image 1",
+  "basic-2": "Image 2",
+  "basic-3": "Image 3",
+  "basic-4": "Image 4",
+};
+
 function buildResults(options: DetailOptions) {
   const results: { id: string; label: string; isMain?: boolean; type: "main" | "basic" | "ai" }[] = [
     { id: "main", label: "메인 컨셉샷", isMain: true, type: "main" },
@@ -41,9 +50,10 @@ function buildResults(options: DetailOptions) {
 
   if (options.basicDetails) {
     results.push(
-      { id: "basic-1", label: "정면 컷", type: "basic" },
-      { id: "basic-2", label: "측면 컷", type: "basic" },
-      { id: "basic-3", label: "45도 앵글 컷", type: "basic" },
+      { id: "basic-1", label: "Image 1", type: "basic" },
+      { id: "basic-2", label: "Image 2", type: "basic" },
+      { id: "basic-3", label: "Image 3", type: "basic" },
+      { id: "basic-4", label: "Image 4", type: "basic" },
     );
   }
 
@@ -56,7 +66,7 @@ function buildResults(options: DetailOptions) {
   return results;
 }
 
-export function ResultView({ isGenerating, onRestart, detailOptions, generatedImage }: ResultViewProps) {
+export function ResultView({ isGenerating, onRestart, detailOptions, generatedImage, generatedDetailImages = {}, detailGeneratingIndex = -1 }: ResultViewProps) {
   const results = buildResults(detailOptions);
   const detailResults = results.filter((r) => !r.isMain);
 
@@ -70,10 +80,19 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
   };
 
   const handleZipDownload = async () => {
-    if (!generatedImage) return;
     const zip = new JSZip();
-    const base64 = generatedImage.split(",")[1];
-    zip.file("concept-shot.png", base64, { base64: true });
+    if (generatedImage) {
+      const base64 = generatedImage.split(",")[1];
+      zip.file("concept-shot.png", base64, { base64: true });
+    }
+    // Add detail images
+    Object.entries(generatedDetailImages).forEach(([id, dataUri]) => {
+      const base64 = dataUri.split(",")[1];
+      if (base64) {
+        zip.file(`detail-${id}.png`, base64, { base64: true });
+      }
+    });
+    if (Object.keys(zip.files).length === 0) return;
     const blob = await zip.generateAsync({ type: "blob" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -84,7 +103,7 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
     URL.revokeObjectURL(link.href);
   };
 
-  if (isGenerating) {
+  if (isGenerating && !generatedImage) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 gap-6">
         <div className="relative h-16 w-16">
@@ -107,9 +126,13 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
   return (
     <div className="flex flex-col flex-1 gap-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">생성 완료! 🎉</h2>
+        <h2 className="text-2xl font-bold">
+          {detailGeneratingIndex >= 0 ? "상세컷 생성 중..." : "생성 완료! 🎉"}
+        </h2>
         <p className="text-muted-foreground text-sm">
-          총 {results.length}장의 컨셉샷이 준비되었습니다
+          {detailGeneratingIndex >= 0
+            ? `상세컷 ${detailGeneratingIndex + 1}/4 생성 중...`
+            : `총 ${results.length}장의 컨셉샷이 준비되었습니다`}
         </p>
       </div>
 
@@ -133,22 +156,40 @@ export function ResultView({ isGenerating, onRestart, detailOptions, generatedIm
 
       {/* Detail shots grid */}
       {detailResults.length > 0 && (
-        <div className="max-w-2xl mx-auto w-full grid grid-cols-3 gap-3">
-          {detailResults.map((result) => (
-            <div key={result.id} className="relative group">
-              <div className={cn(
-                ASPECT_RATIO_CLASS[result.type === "basic" ? detailOptions.basicAspectRatio : detailOptions.aiAspectRatio] || "aspect-square",
-                "rounded-xl border border-border bg-card flex items-center justify-center"
-              )}>
-                <p className="text-muted-foreground text-xs text-center px-2">{result.label}</p>
+        <div className="max-w-2xl mx-auto w-full grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {detailResults.map((result, idx) => {
+            const detailImg = generatedDetailImages[result.id];
+            const isCurrentlyGenerating = result.type === "basic" && detailGeneratingIndex >= 0 && idx === detailGeneratingIndex;
+            const isPending = result.type === "basic" && detailGeneratingIndex >= 0 && idx > detailGeneratingIndex && !detailImg;
+            return (
+              <div key={result.id} className="relative group">
+                <div className={cn(
+                  ASPECT_RATIO_CLASS[result.type === "basic" ? detailOptions.basicAspectRatio : detailOptions.aiAspectRatio] || "aspect-square",
+                  "rounded-xl border border-border bg-card flex items-center justify-center overflow-hidden"
+                )}>
+                  {detailImg ? (
+                    <img src={detailImg} alt={result.label} className="w-full h-full object-contain" />
+                  ) : isCurrentlyGenerating ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <p className="text-muted-foreground text-xs">생성 중...</p>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-xs text-center px-2">
+                      {isPending ? "대기 중..." : result.label}
+                    </p>
+                  )}
+                </div>
+                {detailImg && (
+                  <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleDownload(detailImg, `detail-${result.id}.png`)} className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
+                      <Download className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => generatedImage && handleDownload(generatedImage, `detail-${result.id}.png`)} className="h-6 w-6 rounded-md bg-background/80 backdrop-blur flex items-center justify-center hover:bg-accent">
-                  <Download className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
