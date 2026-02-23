@@ -1,54 +1,77 @@
 
-# 결과 페이지 UI 개선: 섹션 구분 + 이미지 크기 통일 + 확대보기
+
+# 상세컷 배경색 통일: 사전 색상 감지 + 4장 동일 배경 적용
+
+## 문제
+
+현재 4장의 상세컷이 각각 독립된 API 호출로 생성되면서, 모델이 매번 제품 색상을 독자적으로 해석하여 배경색이 제각각 나옴.
+
+## 해결 방법
+
+상세컷 생성 전에 제품 색상을 한 번만 분석하고, 그 결과(배경 톤)를 4장 모두에 동일하게 전달.
 
 ## 변경 파일
 
-**`src/components/create/ResultView.tsx`** 단일 파일 수정
+### 1. Edge Function (`supabase/functions/analyze-product/index.ts`)
 
-## 변경 내용
+**새 액션 추가: `detect-color`**
+- 제품 이미지를 받아 dominant color를 감지하고, 어울리는 pastel background tone 문자열을 반환
+- `google/gemini-3-flash-preview` 사용 (빠르고 저렴)
+- 반환 예시: `{ "detectedCategory": "BEAUTY", "dominantColor": "coral pink", "backgroundTone": "soft pastel coral pink" }`
 
-### 1. 메인컷 / 상세컷 섹션 구분
-- 메인 컨셉샷 위에 "메인 컨셉샷" 섹션 제목 추가
-- 상세컷 그리드 위에 "기본 상세컷" 섹션 제목 추가
-- AI 추천 상세컷이 있는 경우 별도 "AI 추천 상세컷" 섹션 제목 추가
+**`generate-basic-details` 액션 수정**
+- 새 파라미터 `detectedCategory`와 `backgroundTone`을 받도록 확장
+- 시스템 프롬프트의 "Color Adaptation" 부분을 동적으로 교체:
+  - 기존: "Extract the dominant product color..."
+  - 변경: "The background tone has been pre-determined: **{backgroundTone}**. Use EXACTLY this tone for the background. Do NOT re-analyze or change the background color."
+- `shotInstruction`에도 카테고리와 배경 톤을 명시적으로 삽입하여 모델이 재감지하지 않도록 강제
 
-### 2. 이미지 크기 256px x 256px 통일
-- 메인 컨셉샷과 상세컷 모두 동일하게 256px x 256px 고정 크기로 변경
-- 기존 aspect ratio 기반 크기 대신 `w-64 h-64` (256px) 고정 적용
-- 메인컷도 상세컷과 동일 크기로, 그리드 레이아웃에 함께 배치
+### 2. CreatePage (`src/pages/CreatePage.tsx`)
 
-### 3. 이미지 확대보기 버튼 추가
-- `lucide-react`에서 `Maximize2` (또는 `ZoomIn`) 아이콘 import
-- 각 이미지 hover 시 다운로드 버튼 옆에 확대보기 버튼 추가 (동일한 스타일)
-- 클릭 시 `Dialog` 컴포넌트로 이미지를 큰 사이즈로 표시
-- Dialog 내에서도 다운로드 버튼 제공
+**`handleGenerate` 수정**
+- `basicDetails`가 true일 때, `Promise.all` 실행 전에 먼저 `detect-color` 호출
+- 반환된 `detectedCategory`와 `backgroundTone`을 4개 상세컷 호출에 동일하게 전달
 
 ## 기술 상세
 
-### 확대보기 Dialog
-- `@radix-ui/react-dialog` 기반 기존 `Dialog` 컴포넌트 활용
-- `useState`로 `previewImage: { src: string; label: string } | null` 상태 관리
-- Dialog 열릴 때 해당 이미지 src와 label 설정
-- Dialog 내부: 이미지를 `max-w-full max-h-[80vh] object-contain`으로 표시
-
-### 레이아웃 구조 변경
+### detect-color 액션 (Edge Function)
 
 ```text
-[생성 완료! 제목]
-
---- 메인 컨셉샷 ---
-[256x256 이미지 카드] (다운로드 + 확대 버튼)
-
---- 기본 상세컷 ---
-[256x256] [256x256] [256x256] [256x256]  (각각 다운로드 + 확대 버튼)
-
---- AI 추천 상세컷 (있을 경우) ---
-[256x256] [256x256] ...
-
-[새로 만들기] [ZIP 다운로드]
+입력: productImageBase64
+처리: Gemini Flash로 제품 이미지 분석
+프롬프트: "Analyze the product image. Return JSON:
+  {
+    'detectedCategory': 'BEAUTY' or 'TECH' or 'FOOD',
+    'dominantColor': '1-2 word color description',
+    'backgroundTone': 'soft pastel {color} studio background'
+  }"
+출력: { detectedCategory, dominantColor, backgroundTone }
 ```
 
-### 이미지 카드 공통 스타일
-- `w-64 h-64` (256px x 256px) 고정
-- `rounded-xl border border-border bg-card overflow-hidden`
-- hover 시 우측 상단에 다운로드 + 확대 버튼 표시
+### generate-basic-details 수정
+
+```text
+기존 shotInstruction:
+  "Now generate ONLY Image {shotIndex} for the detected category."
+
+변경 shotInstruction:
+  "The product category is {detectedCategory}.
+   MANDATORY BACKGROUND: Use exactly '{backgroundTone}' as the background for this image.
+   Do NOT choose a different background color.
+   Now generate ONLY [{detectedCategory} - Image {shotIndex}]."
+```
+
+시스템 프롬프트 내 Color Adaptation 섹션도 동적 교체하여 배경 톤을 강제 지정.
+
+### CreatePage handleGenerate 흐름
+
+```text
+1. basicDetails가 true일 때:
+   a. detect-color API 호출 -> { detectedCategory, backgroundTone }
+   b. 메인샷 Promise + 상세컷 4장 Promise (모두 backgroundTone 전달) -> Promise.all
+   c. 완료 후 결과 페이지 전환
+
+2. basicDetails가 false일 때:
+   a. 메인샷만 생성 (기존 로직 유지)
+```
+
