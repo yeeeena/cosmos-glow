@@ -1,77 +1,49 @@
 
 
-# 상세컷 배경색 통일: 사전 색상 감지 + 4장 동일 배경 적용
-
-## 문제
-
-현재 4장의 상세컷이 각각 독립된 API 호출로 생성되면서, 모델이 매번 제품 색상을 독자적으로 해석하여 배경색이 제각각 나옴.
-
-## 해결 방법
-
-상세컷 생성 전에 제품 색상을 한 번만 분석하고, 그 결과(배경 톤)를 4장 모두에 동일하게 전달.
+# 상세컷 배경색을 더 연한 파스텔(거의 화이트)로 조정
 
 ## 변경 파일
 
-### 1. Edge Function (`supabase/functions/analyze-product/index.ts`)
+**`supabase/functions/analyze-product/index.ts`** 단일 파일 수정
 
-**새 액션 추가: `detect-color`**
-- 제품 이미지를 받아 dominant color를 감지하고, 어울리는 pastel background tone 문자열을 반환
-- `google/gemini-3-flash-preview` 사용 (빠르고 저렴)
-- 반환 예시: `{ "detectedCategory": "BEAUTY", "dominantColor": "coral pink", "backgroundTone": "soft pastel coral pink" }`
+## 변경 내용
 
-**`generate-basic-details` 액션 수정**
-- 새 파라미터 `detectedCategory`와 `backgroundTone`을 받도록 확장
-- 시스템 프롬프트의 "Color Adaptation" 부분을 동적으로 교체:
-  - 기존: "Extract the dominant product color..."
-  - 변경: "The background tone has been pre-determined: **{backgroundTone}**. Use EXACTLY this tone for the background. Do NOT re-analyze or change the background color."
-- `shotInstruction`에도 카테고리와 배경 톤을 명시적으로 삽입하여 모델이 재감지하지 않도록 강제
+### 1. `detect-color` 프롬프트 수정 (라인 492-500)
 
-### 2. CreatePage (`src/pages/CreatePage.tsx`)
+배경 톤 생성 지시를 "soft pastel"에서 "very light, near-white pastel with white studio lighting"으로 변경합니다.
 
-**`handleGenerate` 수정**
-- `basicDetails`가 true일 때, `Promise.all` 실행 전에 먼저 `detect-color` 호출
-- 반환된 `detectedCategory`와 `backgroundTone`을 4개 상세컷 호출에 동일하게 전달
-
-## 기술 상세
-
-### detect-color 액션 (Edge Function)
-
-```text
-입력: productImageBase64
-처리: Gemini Flash로 제품 이미지 분석
-프롬프트: "Analyze the product image. Return JSON:
-  {
-    'detectedCategory': 'BEAUTY' or 'TECH' or 'FOOD',
-    'dominantColor': '1-2 word color description',
-    'backgroundTone': 'soft pastel {color} studio background'
-  }"
-출력: { detectedCategory, dominantColor, backgroundTone }
+**기존:**
+```
+"backgroundTone": "soft pastel [color] studio background"
+The backgroundTone should be a lighter, desaturated pastel variation of the dominant product color, suitable as a studio backdrop.
 ```
 
-### generate-basic-details 수정
-
-```text
-기존 shotInstruction:
-  "Now generate ONLY Image {shotIndex} for the detected category."
-
-변경 shotInstruction:
-  "The product category is {detectedCategory}.
-   MANDATORY BACKGROUND: Use exactly '{backgroundTone}' as the background for this image.
-   Do NOT choose a different background color.
-   Now generate ONLY [{detectedCategory} - Image {shotIndex}]."
+**변경:**
+```
+"backgroundTone": "very light near-white [color]-tinted studio background with bright white lighting"
+The backgroundTone must be an extremely light, almost white pastel tint derived from the dominant product color. 
+Think of it as a white studio background with just a subtle hint of the product color. 
+The background should look nearly white with soft white studio lighting — only a faint trace of color should be visible.
 ```
 
-시스템 프롬프트 내 Color Adaptation 섹션도 동적 교체하여 배경 톤을 강제 지정.
+### 2. `generate-basic-details` Color Adaptation 섹션 보강 (라인 558-562)
 
-### CreatePage handleGenerate 흐름
+pre-determined 배경 톤 지시문에 "near-white, bright white lighting" 강조를 추가합니다.
 
-```text
-1. basicDetails가 true일 때:
-   a. detect-color API 호출 -> { detectedCategory, backgroundTone }
-   b. 메인샷 Promise + 상세컷 4장 Promise (모두 backgroundTone 전달) -> Promise.all
-   c. 완료 후 결과 페이지 전환
-
-2. basicDetails가 false일 때:
-   a. 메인샷만 생성 (기존 로직 유지)
+**기존:**
 ```
+Use EXACTLY this tone for the background. Do NOT re-analyze or change the background color.
+```
+
+**변경:**
+```
+Use EXACTLY this tone for the background. The background must appear nearly white with bright white studio lighting 
+and only a very subtle hint of color. Do NOT re-analyze or change the background color. Do NOT make the background saturated.
+```
+
+## 효과
+
+- 배경이 거의 하얀색에 가까운 아주 연한 파스텔 톤으로 생성됨
+- 화이트 스튜디오 조명이 강조되어 밝고 깨끗한 느낌
+- 4장 모두 동일한 톤 유지 (기존 detect-color 파이프라인 활용)
 
