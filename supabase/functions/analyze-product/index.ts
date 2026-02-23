@@ -542,6 +542,81 @@ Return ONLY the JSON. No markdown, no explanation.`,
       });
     }
 
+    // ─── ACTION: analyze-main-shot ───
+    if (action === "analyze-main-shot") {
+      const { mainShotImageBase64 } = body;
+      if (!mainShotImageBase64) {
+        return new Response(JSON.stringify({ error: "mainShotImageBase64 is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const mainShotUrl = mainShotImageBase64.startsWith("data:")
+        ? mainShotImageBase64
+        : `data:image/jpeg;base64,${mainShotImageBase64}`;
+
+      const moodPrompt = `You are a professional art director analyzing a product photo.
+Analyze this image and return ONLY a JSON object:
+{
+  "lightingStyle": "describe in 3-5 words (e.g. soft diffused top-left)",
+  "bgTone": "describe background color and texture in 3-5 words (e.g. warm off-white matte)",
+  "colorTemperature": "warm / cool / neutral",
+  "moodKeywords": ["keyword1", "keyword2", "keyword3"],
+  "compositionStyle": "minimal / editorial / lifestyle / dynamic / flat-lay",
+  "overallAesthetic": "one sentence describing the visual mood as a photography direction brief"
+}
+Return ONLY the JSON. No markdown, no explanation.`;
+
+      console.log("AI call: analyze-main-shot started");
+      const result = await callLovableAI({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: mainShotUrl } },
+              { type: "text", text: moodPrompt },
+            ],
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+
+      console.log("AI call: analyze-main-shot completed");
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let content = result.data?.choices?.[0]?.message?.content || "";
+      content = typeof content === "string" ? content.trim() : "";
+      if (content.startsWith("```")) {
+        content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      let moodData;
+      try {
+        moodData = JSON.parse(content);
+      } catch {
+        console.error("analyze-main-shot JSON parse error:", content);
+        return new Response(JSON.stringify({ error: "무드 분석 JSON 파싱 실패" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ moodData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── ACTION: generate-basic-details ───
     if (action === "generate-basic-details") {
       const { productImageBase64, shotIndex, detectedCategory, backgroundTone } = body;
@@ -703,6 +778,122 @@ Now generate ONLY [${detectedCategory} — Image ${shotIndex}]. Generate exactly
       if (!imageDataUri) {
         console.error("No image in basic-detail response for shot", shotIndex);
         return new Response(JSON.stringify({ error: `상세컷 ${shotIndex} 생성에 실패했습니다.` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ imageDataUri, shotIndex }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── ACTION: generate-ai-recommended ───
+    if (action === "generate-ai-recommended") {
+      const { productImageBase64, shotIndex, mainShotMood, aspectRatio, shotLabel } = body;
+      if (!productImageBase64 || shotIndex === undefined) {
+        return new Response(JSON.stringify({ error: "productImageBase64 and shotIndex are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const prodUrl = productImageBase64.startsWith("data:")
+        ? productImageBase64
+        : `data:image/jpeg;base64,${productImageBase64}`;
+
+      // Build mood consistency section
+      const moodSection = mainShotMood ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 VISUAL CONSISTENCY REFERENCE (CRITICAL — FOLLOW EXACTLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The main concept shot for this product has already been generated.
+You MUST maintain full visual consistency with that shot across all recommended images.
+Lighting Style     : ${mainShotMood.lightingStyle}
+Background Tone    : ${mainShotMood.bgTone}
+Color Temperature  : ${mainShotMood.colorTemperature}
+Composition Style  : ${mainShotMood.compositionStyle}
+Mood Keywords      : ${mainShotMood.moodKeywords?.join(", ")}
+Overall Aesthetic  : ${mainShotMood.overallAesthetic}
+MANDATORY RULES:
+- Replicate the background tone as precisely as possible
+- Maintain the same lighting direction and quality
+- Keep the same color temperature (${mainShotMood.colorTemperature})
+- Every output must feel like it belongs to the same visual series as the main concept shot
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+` : "";
+
+      const aspectMap: Record<string, string> = {
+        "1:1": "square 1:1 aspect ratio",
+        "9:16": "vertical portrait 9:16 aspect ratio",
+        "16:9": "horizontal landscape 16:9 aspect ratio",
+        "3:4": "vertical 3:4 aspect ratio",
+        "4:3": "horizontal 4:3 aspect ratio",
+      };
+      const ratioInstruction = aspectRatio ? aspectMap[aspectRatio] || "" : "";
+
+      const systemPrompt = `${moodSection}You are a high-end commercial product photography AI specializing in detail shots.
+Generate a single standalone product detail shot based on the following instruction.
+Preserve the product's label, typography, proportions, silhouette, and structural design exactly.
+Do NOT generate grids, collages, or composite layouts. One scene, one shot, one composition.
+${ratioInstruction ? `Output format: ${ratioInstruction}.` : "Output format: 4:5 vertical (portrait)."}`;
+
+      const shotInstruction = shotLabel
+        ? `Generate a detail shot: "${shotLabel}". Make it a premium, editorial-quality product photograph.`
+        : `Generate detail shot #${shotIndex}. Make it a premium, editorial-quality product photograph.`;
+
+      console.log(`AI call: generate-ai-recommended shotIndex=${shotIndex} started`);
+      const result = await callLovableAI({
+        model: "google/gemini-3-pro-image-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: prodUrl } },
+              { type: "text", text: shotInstruction },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+        temperature: 1,
+      });
+
+      console.log(`AI call: generate-ai-recommended shotIndex=${shotIndex} completed`);
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Extract image (same pattern as generate-basic-details)
+      let imageDataUri: string | null = null;
+      const choices = result.data?.choices;
+      const images = choices?.[0]?.message?.images;
+      if (Array.isArray(images) && images.length > 0) {
+        imageDataUri = images[0]?.image_url?.url || null;
+      }
+      if (!imageDataUri) {
+        const msgContent = choices?.[0]?.message?.content;
+        if (Array.isArray(msgContent)) {
+          for (const part of msgContent) {
+            if (part.type === "image_url" && part.image_url?.url) { imageDataUri = part.image_url.url; break; }
+            if (part.type === "image" && part.image?.url) { imageDataUri = part.image.url; break; }
+            if (part.inline_data) { imageDataUri = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`; break; }
+          }
+        } else if (typeof msgContent === "string" && msgContent.startsWith("data:")) {
+          imageDataUri = msgContent;
+        }
+      }
+
+      if (!imageDataUri) {
+        console.error("No image in ai-recommended response for shot", shotIndex);
+        return new Response(JSON.stringify({ error: `AI 추천 상세컷 ${shotIndex} 생성에 실패했습니다.` }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

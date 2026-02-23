@@ -334,20 +334,88 @@ const CreatePage = () => {
         }
       }
 
-      // Run all in parallel
+      // Run main shot + basic details in parallel
       const [mainImage, ...detailResults] = await Promise.all([mainShotPromise, ...detailPromises]);
 
-      // Update state all at once
-      setGeneratedImage(mainImage);
-      if (detailResults.length > 0) {
-        const detailMap: Record<string, string> = {};
-        for (const r of detailResults) {
-          if (r.uri) detailMap[r.key] = r.uri;
-        }
-        setGeneratedDetailImages(detailMap);
+      // Collect basic detail results
+      const detailMap: Record<string, string> = {};
+      for (const r of detailResults) {
+        if (r.uri) detailMap[r.key] = r.uri;
       }
 
-      // Show result page only after everything is done
+      // Update main image immediately
+      setGeneratedImage(mainImage);
+
+      // ── Mood analysis + AI recommended detail shots ──
+      if (detailOptions.aiRecommended && mainImage && detailOptions.selectedAIDetails.length > 0) {
+        // Step 1: Analyze main shot mood
+        let mainShotMood = null;
+        try {
+          const mainBase64 = mainImage.startsWith("data:")
+            ? mainImage.split(",")[1]
+            : mainImage;
+          const { data: moodResult, error: moodError } = await supabase.functions.invoke("analyze-product", {
+            body: { action: "analyze-main-shot", mainShotImageBase64: mainBase64 },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+          if (!moodError && moodResult?.moodData) {
+            mainShotMood = moodResult.moodData;
+            console.log("Main shot mood analyzed:", mainShotMood);
+          }
+        } catch (e) {
+          console.warn("Main shot mood analysis failed, proceeding without mood:", e);
+        }
+
+        // Step 2: Generate AI recommended detail shots in parallel
+        // Prepare product base64 for AI recommended shots
+        let aiProductBase64 = productBase64;
+        if (!aiProductBase64 && productImage) {
+          const resp = await fetch(productImage);
+          const blob = await resp.blob();
+          const rawB64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          aiProductBase64 = await resizeImage(rawB64);
+        }
+
+        if (aiProductBase64) {
+          const aiDetailPromises = detailOptions.selectedAIDetails.map((detailId, i) => {
+            const shotLabel = detailRecommendation?.details.find(d => d.id === detailId)?.label || detailId;
+            return (async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke("analyze-product", {
+                  body: {
+                    action: "generate-ai-recommended",
+                    productImageBase64: aiProductBase64,
+                    shotIndex: i + 1,
+                    mainShotMood,
+                    aspectRatio: detailOptions.aiAspectRatio,
+                    shotLabel,
+                  },
+                  headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+                });
+                if (!error && data?.imageDataUri) {
+                  return { key: detailId, uri: data.imageDataUri };
+                }
+                console.error(`AI detail ${detailId} failed:`, error || data?.error);
+                return { key: detailId, uri: null };
+              } catch (err) {
+                console.error(`AI detail ${detailId} error:`, err);
+                return { key: detailId, uri: null };
+              }
+            })();
+          });
+
+          const aiResults = await Promise.all(aiDetailPromises);
+          for (const r of aiResults) {
+            if (r.uri) detailMap[r.key] = r.uri;
+          }
+        }
+      }
+
+      setGeneratedDetailImages(detailMap);
       setShowResult(true);
     } catch (e) {
       console.error("Image generation error:", e);
