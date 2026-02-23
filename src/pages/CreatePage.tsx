@@ -207,73 +207,124 @@ const CreatePage = () => {
   };
 
   const handleGenerate = async () => {
-    setShowResult(true);
     setIsGenerating(true);
 
     try {
-      if (selectedStyle === "darklight-studio" && productImage) {
-        // Convert product image to base64 for darklight-studio
+      // Prepare product base64 once if needed for details
+      let productBase64: string | null = null;
+      if (detailOptions.basicDetails && productImage) {
         const resp = await fetch(productImage);
         const blob = await resp.blob();
-        const base64 = await new Promise<string>((resolve) => {
+        const rawBase64 = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(blob);
         });
-
-        const darklightPrompt = `Analyze this product's material (glass, metal, plastic, matte, etc.) and generate a premium studio product photograph. Place the product in a minimalist studio with a refined black-to-white gradient background on a clean reflective or matte surface. Use a Sony A7C II with 50mm macro lens, eye-level perspective. Apply material-aware lighting: controlled top key light, subtle directional side lighting, and soft rim light for silhouette separation. Preserve all brand logos, text, labels, proportions exactly. No new text, no props, no modifications to product structure. Photorealistic, ultra-clean, refined cinematic editorial, modern luxury campaign aesthetic.`;
-
-        const { data, error } = await supabase.functions.invoke("analyze-product", {
-          body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64, aspectRatio: detailOptions.mainAspectRatio },
-          headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
-        });
-
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
-        if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
-
-        setGeneratedImage(data.imageDataUri);
-      } else if (selectedStyle === "custom" && productImage && referenceImage && referenceAnalysis) {
-        // Convert both images to base64
-        const [prodResp, refResp] = await Promise.all([fetch(productImage), fetch(referenceImage)]);
-        const [prodBlob, refBlob] = await Promise.all([prodResp.blob(), refResp.blob()]);
-        const [prodBase64, refBase64] = await Promise.all([
-          new Promise<string>((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result as string); r.readAsDataURL(prodBlob); }),
-          new Promise<string>((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result as string); r.readAsDataURL(refBlob); }),
-        ]);
-
-        const { data, error } = await supabase.functions.invoke("analyze-product", {
-          body: {
-            action: "generate",
-            prompt: "Product composite photography with reference scene.",
-            productImageBase64: prodBase64,
-            referenceImageBase64: refBase64,
-            referenceAnalysis,
-            aspectRatio: detailOptions.mainAspectRatio,
-          },
-          headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
-        });
-
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
-        if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
-
-        setGeneratedImage(data.imageDataUri);
-      } else if (selectedStyle === "texture-concept" && generationPrompt) {
-        const { data, error } = await supabase.functions.invoke("analyze-product", {
-          body: { action: "generate", prompt: generationPrompt, aspectRatio: detailOptions.mainAspectRatio },
-          headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
-        });
-
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
-        if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
-
-        setGeneratedImage(data.imageDataUri);
-      } else {
-        // Other styles: placeholder delay
-        await new Promise((r) => setTimeout(r, 3000));
+        productBase64 = await resizeImage(rawBase64);
       }
+
+      // Build main shot promise
+      const mainShotPromise = (async (): Promise<string | null> => {
+        if (selectedStyle === "darklight-studio" && productImage) {
+          const resp = await fetch(productImage);
+          const blob = await resp.blob();
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+
+          const darklightPrompt = `Analyze this product's material (glass, metal, plastic, matte, etc.) and generate a premium studio product photograph. Place the product in a minimalist studio with a refined black-to-white gradient background on a clean reflective or matte surface. Use a Sony A7C II with 50mm macro lens, eye-level perspective. Apply material-aware lighting: controlled top key light, subtle directional side lighting, and soft rim light for silhouette separation. Preserve all brand logos, text, labels, proportions exactly. No new text, no props, no modifications to product structure. Photorealistic, ultra-clean, refined cinematic editorial, modern luxury campaign aesthetic.`;
+
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64, aspectRatio: detailOptions.mainAspectRatio },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+
+          if (error) throw new Error(error.message);
+          if (data?.error) throw new Error(data.error);
+          if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+          return data.imageDataUri;
+        } else if (selectedStyle === "custom" && productImage && referenceImage && referenceAnalysis) {
+          const [prodResp, refResp] = await Promise.all([fetch(productImage), fetch(referenceImage)]);
+          const [prodBlob, refBlob] = await Promise.all([prodResp.blob(), refResp.blob()]);
+          const [prodBase64, refBase64] = await Promise.all([
+            new Promise<string>((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result as string); r.readAsDataURL(prodBlob); }),
+            new Promise<string>((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result as string); r.readAsDataURL(refBlob); }),
+          ]);
+
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: {
+              action: "generate",
+              prompt: "Product composite photography with reference scene.",
+              productImageBase64: prodBase64,
+              referenceImageBase64: refBase64,
+              referenceAnalysis,
+              aspectRatio: detailOptions.mainAspectRatio,
+            },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+
+          if (error) throw new Error(error.message);
+          if (data?.error) throw new Error(data.error);
+          if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+          return data.imageDataUri;
+        } else if (selectedStyle === "texture-concept" && generationPrompt) {
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: { action: "generate", prompt: generationPrompt, aspectRatio: detailOptions.mainAspectRatio },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+
+          if (error) throw new Error(error.message);
+          if (data?.error) throw new Error(data.error);
+          if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+          return data.imageDataUri;
+        } else {
+          await new Promise((r) => setTimeout(r, 3000));
+          return null;
+        }
+      })();
+
+      // Build detail shot promises (parallel)
+      const detailPromises: Promise<{ key: string; uri: string | null }>[] = [];
+      if (detailOptions.basicDetails && productBase64) {
+        for (let i = 1; i <= 4; i++) {
+          detailPromises.push(
+            (async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke("analyze-product", {
+                  body: { action: "generate-basic-details", productImageBase64: productBase64, shotIndex: i },
+                  headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+                });
+                if (!error && data?.imageDataUri) {
+                  return { key: `basic-${i}`, uri: data.imageDataUri };
+                }
+                console.error(`Detail shot ${i} failed:`, error || data?.error);
+                return { key: `basic-${i}`, uri: null };
+              } catch (detailErr) {
+                console.error(`Detail shot ${i} error:`, detailErr);
+                return { key: `basic-${i}`, uri: null };
+              }
+            })()
+          );
+        }
+      }
+
+      // Run all in parallel
+      const [mainImage, ...detailResults] = await Promise.all([mainShotPromise, ...detailPromises]);
+
+      // Update state all at once
+      setGeneratedImage(mainImage);
+      if (detailResults.length > 0) {
+        const detailMap: Record<string, string> = {};
+        for (const r of detailResults) {
+          if (r.uri) detailMap[r.key] = r.uri;
+        }
+        setGeneratedDetailImages(detailMap);
+      }
+
+      // Show result page only after everything is done
+      setShowResult(true);
     } catch (e) {
       console.error("Image generation error:", e);
       toast({
@@ -283,42 +334,6 @@ const CreatePage = () => {
       });
     } finally {
       setIsGenerating(false);
-    }
-
-    // Generate basic detail shots if enabled
-    if (detailOptions.basicDetails && productImage) {
-      try {
-        const resp = await fetch(productImage);
-        const blob = await resp.blob();
-        const rawBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-        const base64 = await resizeImage(rawBase64);
-
-        for (let i = 1; i <= 4; i++) {
-          setDetailGeneratingIndex(i - 1);
-          try {
-            const { data, error } = await supabase.functions.invoke("analyze-product", {
-              body: { action: "generate-basic-details", productImageBase64: base64, shotIndex: i },
-              headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
-            });
-
-            if (!error && data?.imageDataUri) {
-              setGeneratedDetailImages((prev) => ({ ...prev, [`basic-${i}`]: data.imageDataUri }));
-            } else {
-              console.error(`Detail shot ${i} failed:`, error || data?.error);
-            }
-          } catch (detailErr) {
-            console.error(`Detail shot ${i} error:`, detailErr);
-          }
-        }
-      } catch (e) {
-        console.error("Detail image prep error:", e);
-      } finally {
-        setDetailGeneratingIndex(-1);
-      }
     }
   };
 
@@ -350,7 +365,7 @@ const CreatePage = () => {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6 flex">
         {/* Analyzing loading screen */}
-        {isAnalyzing ? (
+        {isAnalyzing || isGenerating ? (
           <div className="flex flex-col items-center justify-center flex-1 gap-6">
             <div className="relative h-16 w-16">
               <div className="absolute inset-0 rounded-full border-4 border-muted" />
@@ -358,10 +373,20 @@ const CreatePage = () => {
             </div>
             <div className="text-center space-y-1">
               <p className="text-lg font-semibold">
-                {currentStep === 1 ? "AI가 제품을 분석 중입니다..." : selectedStyle === "custom" ? "AI가 레퍼런스를 분석 중입니다..." : "AI가 제품을 분석 중입니다..."}
+                {isGenerating
+                  ? detailOptions.basicDetails
+                    ? "메인 컨셉샷 + 상세컷 4장을 생성 중입니다..."
+                    : "메인 컨셉샷을 생성 중입니다..."
+                  : currentStep === 1
+                  ? "AI가 제품을 분석 중입니다..."
+                  : selectedStyle === "custom"
+                  ? "AI가 레퍼런스를 분석 중입니다..."
+                  : "AI가 제품을 분석 중입니다..."}
               </p>
               <p className="text-sm text-muted-foreground">
-                {currentStep === 1
+                {isGenerating
+                  ? "고품질 이미지를 생성하고 있어요. 잠시만 기다려주세요"
+                  : currentStep === 1
                   ? "제품에 맞는 최적의 상세컷을 추천하고 있어요"
                   : selectedStyle === "custom"
                   ? "레퍼런스 이미지의 배경 컨셉을 추출하고 있어요"
