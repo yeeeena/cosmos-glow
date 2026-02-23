@@ -494,9 +494,11 @@ Return ONLY a JSON object:
 {
   "detectedCategory": "BEAUTY" or "TECH" or "FOOD",
   "dominantColor": "1-2 word color description in English (e.g. coral pink, mint green, deep navy)",
-  "backgroundTone": "soft pastel [color] studio background"
+  "backgroundTone": "very light near-white [color]-tinted studio background with bright white lighting"
 }
-The backgroundTone should be a lighter, desaturated pastel variation of the dominant product color, suitable as a studio backdrop.
+The backgroundTone must be an extremely light, almost white pastel tint derived from the dominant product color.
+Think of it as a white studio background with just a subtle hint of the product color.
+The background should look nearly white with soft white studio lighting — only a faint trace of color should be visible.
 Return ONLY the JSON. No markdown, no explanation.`,
               },
             ],
@@ -557,7 +559,7 @@ Return ONLY the JSON. No markdown, no explanation.`,
       // Dynamically build Color Adaptation section
       const colorAdaptationSection = backgroundTone
         ? `Color Adaptation (PRE-DETERMINED — DO NOT OVERRIDE)
-The background tone has been pre-determined: "${backgroundTone}". Use EXACTLY this tone for the background. Do NOT re-analyze or change the background color. Do NOT choose a different color. The background MUST be: ${backgroundTone}.`
+The background tone has been pre-determined: "${backgroundTone}". Use EXACTLY this tone for the background. The background must appear nearly white with bright white studio lighting and only a very subtle hint of color. Do NOT re-analyze or change the background color. Do NOT make the background saturated. The background MUST be: ${backgroundTone}.`
         : `Color Adaptation
 Extract the dominant product color (liquid or packaging tone). Use this color ONLY to generate a lighter, pastel-toned background. Do NOT alter the product color itself. Background = softened, desaturated variation of the product color.`;
 
