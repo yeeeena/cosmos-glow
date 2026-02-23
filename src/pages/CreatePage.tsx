@@ -285,6 +285,25 @@ const CreatePage = () => {
         }
       })();
 
+      // Pre-detect color for consistent backgrounds across detail shots
+      let detectedCategory: string | null = null;
+      let backgroundTone: string | null = null;
+      if (detailOptions.basicDetails && productBase64) {
+        try {
+          const { data: colorData, error: colorError } = await supabase.functions.invoke("analyze-product", {
+            body: { action: "detect-color", productImageBase64: productBase64 },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+          if (!colorError && colorData?.detectedCategory && colorData?.backgroundTone) {
+            detectedCategory = colorData.detectedCategory;
+            backgroundTone = colorData.backgroundTone;
+            console.log("Color detected:", { detectedCategory, backgroundTone });
+          }
+        } catch (e) {
+          console.error("Color detection failed, proceeding without:", e);
+        }
+      }
+
       // Build detail shot promises (parallel)
       const detailPromises: Promise<{ key: string; uri: string | null }>[] = [];
       if (detailOptions.basicDetails && productBase64) {
@@ -293,7 +312,12 @@ const CreatePage = () => {
             (async () => {
               try {
                 const { data, error } = await supabase.functions.invoke("analyze-product", {
-                  body: { action: "generate-basic-details", productImageBase64: productBase64, shotIndex: i },
+                  body: {
+                    action: "generate-basic-details",
+                    productImageBase64: productBase64,
+                    shotIndex: i,
+                    ...(detectedCategory && backgroundTone ? { detectedCategory, backgroundTone } : {}),
+                  },
                   headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
                 });
                 if (!error && data?.imageDataUri) {

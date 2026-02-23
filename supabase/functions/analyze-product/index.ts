@@ -465,9 +465,84 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
       });
     }
 
+    // ─── ACTION: detect-color ───
+    if (action === "detect-color") {
+      const { productImageBase64 } = body;
+      if (!productImageBase64) {
+        return new Response(JSON.stringify({ error: "productImageBase64 is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const prodUrl = productImageBase64.startsWith("data:")
+        ? productImageBase64
+        : `data:image/jpeg;base64,${productImageBase64}`;
+
+      console.log("AI call: detect-color started");
+      const result = await callLovableAI({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: prodUrl } },
+              {
+                type: "text",
+                text: `Analyze this product image. Determine the product category and extract the dominant color of the product (liquid or packaging tone).
+Return ONLY a JSON object:
+{
+  "detectedCategory": "BEAUTY" or "TECH" or "FOOD",
+  "dominantColor": "1-2 word color description in English (e.g. coral pink, mint green, deep navy)",
+  "backgroundTone": "soft pastel [color] studio background"
+}
+The backgroundTone should be a lighter, desaturated pastel variation of the dominant product color, suitable as a studio backdrop.
+Return ONLY the JSON. No markdown, no explanation.`,
+              },
+            ],
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 300,
+      });
+
+      console.log("AI call: detect-color completed");
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let content = result.data?.choices?.[0]?.message?.content || "";
+      content = content.trim();
+      if (content.startsWith("```")) {
+        content = content.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      let colorData;
+      try {
+        colorData = JSON.parse(content);
+      } catch {
+        console.error("detect-color JSON parse error:", content);
+        return new Response(JSON.stringify({ error: "색상 감지에 실패했습니다." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify(colorData), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── ACTION: generate-basic-details ───
     if (action === "generate-basic-details") {
-      const { productImageBase64, shotIndex } = body;
+      const { productImageBase64, shotIndex, detectedCategory, backgroundTone } = body;
       if (!productImageBase64 || shotIndex === undefined) {
         return new Response(JSON.stringify({ error: "productImageBase64 and shotIndex are required" }), {
           status: 400,
@@ -478,6 +553,13 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
       const prodUrl = productImageBase64.startsWith("data:")
         ? productImageBase64
         : `data:image/jpeg;base64,${productImageBase64}`;
+
+      // Dynamically build Color Adaptation section
+      const colorAdaptationSection = backgroundTone
+        ? `Color Adaptation (PRE-DETERMINED — DO NOT OVERRIDE)
+The background tone has been pre-determined: "${backgroundTone}". Use EXACTLY this tone for the background. Do NOT re-analyze or change the background color. Do NOT choose a different color. The background MUST be: ${backgroundTone}.`
+        : `Color Adaptation
+Extract the dominant product color (liquid or packaging tone). Use this color ONLY to generate a lighter, pastel-toned background. Do NOT alter the product color itself. Background = softened, desaturated variation of the product color.`;
 
       const systemPrompt = `You are a high-end commercial product photography AI. When a user uploads a product image, perform the following steps in order:
 
@@ -501,8 +583,7 @@ Format: 4:5 vertical (portrait) per image.
 Source Reference (CRITICAL)
 Maintain the exact product identity from the uploaded image. Do NOT change the bottle shape, proportions, label layout, typography, logo, liquid transparency, or liquid color. The product must remain crisp, well-defined, and visually solid.
 
-Color Adaptation
-Extract the dominant product color (liquid or packaging tone). Use this color ONLY to generate a lighter, pastel-toned background. Do NOT alter the product color itself. Background = softened, desaturated variation of the product color.
+${colorAdaptationSection}
 
 Style
 Ultra-premium commercial beauty product photography. 8K resolution, ultra-sharp focus. Clean studio lighting with gentle contrast. Softbox key light + subtle rim light. Avoid washed-out, milky, or foggy rendering.
@@ -558,7 +639,15 @@ Rendering Quality: Physically accurate reflections and shadows.
 Product Identity: The uploaded product must not be reshaped, recolored, or redesigned in any shot.
 No Human Presence: No hands, no faces — EXCEPT [BEAUTY — Image 4].`;
 
-      const shotInstruction = `Now generate ONLY Image ${shotIndex} for the detected category. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.`;
+      // Build shot instruction with mandatory background if provided
+      let shotInstruction: string;
+      if (detectedCategory && backgroundTone) {
+        shotInstruction = `The product category is ${detectedCategory}.
+MANDATORY BACKGROUND: Use exactly "${backgroundTone}" as the background for this image. Do NOT choose a different background color.
+Now generate ONLY [${detectedCategory} — Image ${shotIndex}]. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.`;
+      } else {
+        shotInstruction = `Now generate ONLY Image ${shotIndex} for the detected category. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.`;
+      }
 
       console.log(`AI call: generate-basic-details shotIndex=${shotIndex} started`);
       const result = await callLovableAI({
