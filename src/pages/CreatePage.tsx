@@ -102,6 +102,8 @@ const CreatePage = () => {
   const [textureAnalysis, setTextureAnalysis] = useState<TextureAnalysis | null>(null);
   const [generationPrompt, setGenerationPrompt] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedDetailImages, setGeneratedDetailImages] = useState<Record<string, string>>({});
+  const [detailGeneratingIndex, setDetailGeneratingIndex] = useState(-1);
   const [referenceAnalysis, setReferenceAnalysis] = useState<Record<string, string> | null>(null);
   const [detailRecommendation, setDetailRecommendation] = useState<DetailRecommendation | null>(null);
 
@@ -282,6 +284,42 @@ const CreatePage = () => {
     } finally {
       setIsGenerating(false);
     }
+
+    // Generate basic detail shots if enabled
+    if (detailOptions.basicDetails && productImage) {
+      try {
+        const resp = await fetch(productImage);
+        const blob = await resp.blob();
+        const rawBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        const base64 = await resizeImage(rawBase64);
+
+        for (let i = 1; i <= 4; i++) {
+          setDetailGeneratingIndex(i - 1);
+          try {
+            const { data, error } = await supabase.functions.invoke("analyze-product", {
+              body: { action: "generate-basic-details", productImageBase64: base64, shotIndex: i },
+              headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+            });
+
+            if (!error && data?.imageDataUri) {
+              setGeneratedDetailImages((prev) => ({ ...prev, [`basic-${i}`]: data.imageDataUri }));
+            } else {
+              console.error(`Detail shot ${i} failed:`, error || data?.error);
+            }
+          } catch (detailErr) {
+            console.error(`Detail shot ${i} error:`, detailErr);
+          }
+        }
+      } catch (e) {
+        console.error("Detail image prep error:", e);
+      } finally {
+        setDetailGeneratingIndex(-1);
+      }
+    }
   };
 
   const handleRestart = () => {
@@ -295,6 +333,8 @@ const CreatePage = () => {
     setTextureAnalysis(null);
     setGenerationPrompt(null);
     setGeneratedImage(null);
+    setGeneratedDetailImages({});
+    setDetailGeneratingIndex(-1);
     setReferenceAnalysis(null);
     setDetailRecommendation(null);
   };
@@ -338,6 +378,8 @@ const CreatePage = () => {
             onRestart={handleRestart}
             detailOptions={detailOptions}
             generatedImage={generatedImage}
+            generatedDetailImages={generatedDetailImages}
+            detailGeneratingIndex={detailGeneratingIndex}
           />
         ) : currentStep === 1 ? (
           <StepUpload

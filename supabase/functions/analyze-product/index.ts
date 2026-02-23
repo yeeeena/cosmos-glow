@@ -465,7 +465,164 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'analyze' or 'generate'." }), {
+    // ─── ACTION: generate-basic-details ───
+    if (action === "generate-basic-details") {
+      const { productImageBase64, shotIndex } = body;
+      if (!productImageBase64 || shotIndex === undefined) {
+        return new Response(JSON.stringify({ error: "productImageBase64 and shotIndex are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const prodUrl = productImageBase64.startsWith("data:")
+        ? productImageBase64
+        : `data:image/jpeg;base64,${productImageBase64}`;
+
+      const systemPrompt = `You are a high-end commercial product photography AI. When a user uploads a product image, perform the following steps in order:
+
+STEP 1 — Product Category Detection Analyze the uploaded image and classify the product into exactly ONE of the following categories:
+
+BEAUTY — Skincare, serum, cosmetics, perfume, body care (glass or plastic bottle/tube/jar)
+TECH — Electronics, gadgets, devices, wearables, accessories with mechanical or digital components
+FOOD — Food packaging, snack bags, beverage cans/bottles, meal boxes, health food pouches
+
+STEP 2 — Apply Category Rules Based on the detected category, apply the matching Style Guide and Shot List defined below.
+
+STEP 3 — Generate Individual Images Generate each shot as a SEPARATE, STANDALONE image.
+Do NOT create grids, collages, or composite layouts.
+Do NOT combine multiple shots into one image.
+Each image is one scene, one shot, one composition.
+Format: 4:5 vertical (portrait) per image.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧴 CATEGORY: BEAUTY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Source Reference (CRITICAL)
+Maintain the exact product identity from the uploaded image. Do NOT change the bottle shape, proportions, label layout, typography, logo, liquid transparency, or liquid color. The product must remain crisp, well-defined, and visually solid.
+
+Color Adaptation
+Extract the dominant product color (liquid or packaging tone). Use this color ONLY to generate a lighter, pastel-toned background. Do NOT alter the product color itself. Background = softened, desaturated variation of the product color.
+
+Style
+Ultra-premium commercial beauty product photography. 8K resolution, ultra-sharp focus. Clean studio lighting with gentle contrast. Softbox key light + subtle rim light. Avoid washed-out, milky, or foggy rendering.
+
+Environment
+Seamless studio backdrop in pastel tone derived from product color. Background must be soft and non-distracting. Product must visually stand out.
+
+🖼 BEAUTY — Individual Shot List (4 Images Total)
+[BEAUTY — Image 1] Hero Center Bottle centered on a clean surface with a natural, grounded contact shadow. Full product visible, clean and authoritative. NO PROPS / NO FLOWERS / NO FRUITS / NO OBJECTS / NO HUMAN HANDS.
+[BEAUTY — Image 2] Top-Down Flat Lay Minimal bird's-eye view of the product on the pastel-toned background. No surrounding objects. Perfectly centered. NO PROPS / NO FLOWERS / NO FRUITS / NO OBJECTS / NO HUMAN HANDS.
+[BEAUTY — Image 3] Viscous Drip Extreme close-up of the serum texture flowing naturally down the glass surface. Liquid only. No tools or hands visible.
+[BEAUTY — Image 4] Hand & Product Portrait A minimal shot of a Korean woman's hand gently holding the product. Soft warm studio light, clean neutral beige background. Premium skincare commercial portrait mood. The product label and identity must remain fully visible and unaltered. Only the hand is visible — no face, no body, no other elements.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💻 CATEGORY: TECH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Source Reference (CRITICAL)
+Maintain the exact product identity from the uploaded image. Do NOT alter the product's shape, proportions, materials, surface finish, color, logo, text, buttons, ports, indicators, or interface details. The product must remain crisp, precise, and physically realistic.
+
+Style
+Ultra-premium commercial tech product photography. 8K resolution, ultra-sharp focus. High-end studio lighting with controlled contrast. Clear edge definition, realistic reflections, accurate material response.
+
+🖼 TECH — Individual Shot List (4 Images Total)
+[TECH — Image 1] Hero Front View Clean, centered hero shot emphasizing the product's overall form and silhouette.
+[TECH — Image 2] Angled 3/4 View Three-quarter angle highlighting depth, curvature, and dimensionality.
+[TECH — Image 3] Functional Detail Close-up of a key functional element: button, speaker grille, port, indicator light, hinge, or control surface.
+[TECH — Image 4] Low-Angle Hero Subtle low-angle shot enhancing presence and premium feel. No dramatic distortion or exaggeration.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🍱 CATEGORY: FOOD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Source Reference (CRITICAL)
+Maintain the exact identity of the uploaded food package. Do NOT change the package shape, proportions, structure, branding layout, typography, logo, illustrations, or printed text.
+
+Food Content Inference
+Analyze the package design, text, and visual cues to infer the food product inside. Generate realistic food visuals that naturally match the product type.
+
+Style
+Ultra-premium commercial food photography. High-resolution, sharp focus. Studio lighting optimized for food presentation.
+
+🖼 FOOD — Individual Shot List (4 Images Total)
+[FOOD — Image 1] Package + Food Composition The package placed next to the inferred food product. Clearly shows what the package contains.
+[FOOD — Image 2] Food Close-Up Detailed close-up of the food texture, ingredients, or surface. Appetizing and realistic.
+[FOOD — Image 3] Ingredient / Texture Detail Close-up focusing on ingredients, layers, or internal structure of the food.
+[FOOD — Image 4] Hero Lifestyle Angle Low or natural eye-level angle combining the package and food. Strong, appetizing final hero composition.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ UNIVERSAL TECHNICAL CONSTRAINTS (All Categories)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Output Format: Each image is a standalone 4:5 vertical image. No grids, no collages, no composite layouts.
+Brand / Typography Integrity: Follow the reference label or packaging exactly.
+Rendering Quality: Physically accurate reflections and shadows.
+Product Identity: The uploaded product must not be reshaped, recolored, or redesigned in any shot.
+No Human Presence: No hands, no faces — EXCEPT [BEAUTY — Image 4].`;
+
+      const shotInstruction = `Now generate ONLY Image ${shotIndex} for the detected category. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.`;
+
+      console.log(`AI call: generate-basic-details shotIndex=${shotIndex} started`);
+      const result = await callLovableAI({
+        model: "google/gemini-3-pro-image-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: prodUrl } },
+              { type: "text", text: shotInstruction },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+        temperature: 1,
+      });
+
+      console.log(`AI call: generate-basic-details shotIndex=${shotIndex} completed`);
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Extract image
+      let imageDataUri: string | null = null;
+      const choices = result.data?.choices;
+      const images = choices?.[0]?.message?.images;
+      if (Array.isArray(images) && images.length > 0) {
+        imageDataUri = images[0]?.image_url?.url || null;
+      }
+      if (!imageDataUri) {
+        const msgContent = choices?.[0]?.message?.content;
+        if (Array.isArray(msgContent)) {
+          for (const part of msgContent) {
+            if (part.type === "image_url" && part.image_url?.url) { imageDataUri = part.image_url.url; break; }
+            if (part.type === "image" && part.image?.url) { imageDataUri = part.image.url; break; }
+            if (part.inline_data) { imageDataUri = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`; break; }
+          }
+        } else if (typeof msgContent === "string" && msgContent.startsWith("data:")) {
+          imageDataUri = msgContent;
+        }
+      }
+
+      if (!imageDataUri) {
+        console.error("No image in basic-detail response for shot", shotIndex);
+        return new Response(JSON.stringify({ error: `상세컷 ${shotIndex} 생성에 실패했습니다.` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ imageDataUri, shotIndex }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Invalid action." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
