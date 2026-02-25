@@ -1,77 +1,100 @@
 
+# 상세컷 2장 축소 + 순차 생성 + Hex 배경색 개선
 
-# 3가지 동시 수정: analyze-main-shot + generate-ai-recommended 무드 주입 + CreatePage 흐름 변경
+## 변경 요약
 
-## 변경 파일
+3가지 개선을 동시에 적용합니다:
+1. 상세컷 4장 → 2장 축소 (카테고리별 선택된 샷만 유지)
+2. 순차 생성 (Image 1 먼저 → Image 2에 참조 전달)
+3. detect-color에서 RGB hex 코드 추출하여 배경 일관성 강화
 
-1. **`supabase/functions/analyze-product/index.ts`**
-2. **`src/pages/CreatePage.tsx`**
+## 카테고리별 유지 샷
 
-## 변경 내용
+| 카테고리 | Shot 1 | Shot 2 |
+|---------|--------|--------|
+| BEAUTY | Image 2 (Top-Down Flat Lay) | Image 4 (Hand & Product Portrait) |
+| TECH | Image 1 (Hero Front View) | Image 2 (Angled 3/4 View) |
+| FOOD | Image 1 (Package + Food Composition) | Image 4 (Hero Lifestyle Angle) |
 
-### [1] Edge Function: `analyze-main-shot` 액션 추가
+## 변경 파일 및 내용
 
-`generate-basic-details` 액션(현재 라인 545) 바로 위에 새로운 `analyze-main-shot` 액션을 추가합니다.
+### [1] `supabase/functions/analyze-product/index.ts`
 
-- 메인샷 이미지를 받아 Gemini Flash로 무드 분석 (lightingStyle, bgTone, colorTemperature, moodKeywords, compositionStyle, overallAesthetic)
-- JSON 반환, 파싱 실패 시 500 에러
-- rate limit (429/402) 처리 포함
+**detect-color 액션 수정:**
+- 프롬프트에 `backgroundHex` 필드 추가 요청
+- 반환값: `{ detectedCategory, dominantColor, backgroundHex: "#F5E6E0", backgroundTone: "..." }`
 
-### [2] Edge Function: `generate-ai-recommended` 액션 추가 + 무드 주입
+**generate-basic-details 액션 수정:**
+- 시스템 프롬프트에서 각 카테고리 샷 리스트를 2장으로 축소 (유저 지정 샷만 유지)
+- "all 4 images" 등의 표현을 "all 2 images" / "both images"로 변경
+- `backgroundColorSection`에 hex 코드 강제 삽입: "Use EXACTLY this hex color: #XXXXXX"
+- 새 파라미터 `referenceImageBase64` 수용: shotIndex=2일 때 Image 1 결과를 참조 이미지로 받아 userContent에 추가하고, "Match the background, lighting, surface of this reference image EXACTLY" 지시 삽입
 
-현재 `generate-ai-recommended` 액션은 존재하지 않으므로, `generate-basic-details` 액션 뒤(라인 714 부근)에 새로 생성합니다.
+**shotIndex 매핑:**
+- `detectedCategory`와 `shotIndex`(1 또는 2)를 조합하여 올바른 Shot 지시를 선택
+- 예: BEAUTY + shotIndex 1 → "Image 2: Top-Down Flat Lay", BEAUTY + shotIndex 2 → "Image 4: Hand & Product Portrait"
 
-- `productImageBase64`, `shotIndex`, `mainShotMood`, `aspectRatio`, `shotLabel` 파라미터 수용
-- `mainShotMood`가 있을 때 시스템 프롬프트 상단에 "VISUAL CONSISTENCY REFERENCE" 섹션을 동적 삽입
-- 메인샷의 조명, 배경 톤, 색온도, 구도, 분위기를 그대로 재현하도록 강제
-- `mainShotMood`가 null이면 무드 섹션 없이 기본 생성
-- image generation 모델(`google/gemini-3-pro-image-preview`) 사용
-- rate limit 및 이미지 추출 로직은 기존 패턴과 동일
+### [2] `src/pages/CreatePage.tsx`
 
-### [3] CreatePage: `handleGenerate` 흐름에 무드 분석 단계 추가
+**handleGenerate 함수 변경:**
+- 기본 상세컷 루프를 `for (let i = 1; i <= 4)` → `for (let i = 1; i <= 2)`로 변경
+- 순차 생성 로직:
+  1. 메인샷 + detect-color를 병렬 실행 (기존과 동일)
+  2. detect-color 완료 후, 상세컷 Image 1(shotIndex=1)만 단독 생성
+  3. Image 1 결과를 `referenceImageBase64`로 전달하며 Image 2(shotIndex=2) 생성
+- `backgroundHex`를 detect-color 결과에서 추출하여 상세컷 생성 body에 포함
 
-현재 `handleGenerate`에서 메인샷 + 기본 상세컷만 `Promise.all`로 병렬 실행하고 있습니다. 이를 다음 순서로 변경합니다:
+**로딩 메시지 업데이트:**
+- "메인 컨셉샷 + 상세컷 4장" → "메인 컨셉샷 + 상세컷 2장"
 
-1. 메인샷 생성 (기존 로직 유지)
-2. `detailOptions.aiRecommended`가 true이고 메인샷 이미지가 있을 때:
-   - `analyze-main-shot` 호출하여 `mainShotMood` 획득
-   - 실패 시 `mainShotMood = null`로 정상 진행
-3. AI 추천 상세컷 생성 시 `mainShotMood`를 body에 포함하여 `generate-ai-recommended` 호출
-4. 기본 상세컷(basicDetails)은 기존처럼 병렬 생성 유지
+### [3] `src/components/create/ResultView.tsx`
 
-실행 순서:
+**buildResults 함수 변경:**
+- basicResults를 4개에서 2개로 축소:
 ```text
-메인샷 생성 + 기본 상세컷 4장 (병렬, 기존 로직)
-    ↓ (메인샷 완료 후)
-analyze-main-shot (aiRecommended가 true일 때)
-    ↓
-generate-ai-recommended x N장 (선택된 AI 상세컷, 병렬)
-    ↓
+{ id: "basic-1", label: "Image 1" },
+{ id: "basic-2", label: "Image 2" },
+```
+
+## 실행 순서 (변경 후)
+
+```text
+메인샷 생성 + detect-color (병렬)
+    |
+상세컷 Shot 1 단독 생성 (hex 배경 강제)
+    |
+상세컷 Shot 2 생성 (Shot 1 결과를 참조 이미지로 전달 + hex 배경 강제)
+    |
+(AI 추천 상세컷이 있으면) analyze-main-shot → AI 추천 병렬 생성
+    |
 결과 페이지 전환
 ```
 
-무드 분석 실패 시에도 `mainShotMood: null`로 정상 진행되며, AI 추천 상세컷은 무드 없이 독립적으로 생성됩니다.
-
 ## 기술 상세
 
-### analyze-main-shot 액션 구조
+### detect-color 변경된 프롬프트 반환 스키마
 
 ```text
-입력: mainShotImageBase64
-모델: google/gemini-3-flash-preview (텍스트 분석용, 빠르고 저렴)
-출력: { moodData: { lightingStyle, bgTone, colorTemperature, moodKeywords, compositionStyle, overallAesthetic } }
+{
+  "detectedCategory": "BEAUTY",
+  "dominantColor": "coral pink",
+  "backgroundHex": "#F5E6E0",
+  "backgroundTone": "very light near-white coral-tinted studio background"
+}
 ```
 
-### generate-ai-recommended 무드 섹션
+### generate-basic-details 참조 이미지 처리
 
-`mainShotMood`가 존재할 때 시스템 프롬프트 앞에 삽입되는 블록:
-- Lighting Style, Background Tone, Color Temperature, Composition Style, Mood Keywords, Overall Aesthetic
-- MANDATORY RULES: 배경 톤 정확 재현, 동일 조명 방향/품질, 동일 색온도, 동일 시리즈 느낌 강제
+shotIndex=2이고 `referenceImageBase64`가 존재할 때:
+- userContent 배열에 참조 이미지를 추가 (product image + reference image + text instruction)
+- shotInstruction에 "The second image is the reference shot (Shot 1). Match its background color, lighting direction, surface texture, and overall color grade EXACTLY." 삽입
 
-### CreatePage handleGenerate 변경 요약
+### 배경 hex 강제 적용
 
-- 메인샷 결과(`mainImage`)를 먼저 받은 후 무드 분석 호출
-- `selectedAIDetails` 배열의 각 항목에 대해 `generate-ai-recommended` 병렬 호출
-- 결과를 `generatedDetailImages`에 `ai-{id}` 키로 저장
-- 배포까지 자동 수행
-
+`backgroundHex`가 존재할 때 backgroundColorSection에 삽입:
+```text
+BACKGROUND COLOR
+Use EXACTLY this hex color as the background: #F5E6E0
+The background must be this exact color with bright white studio lighting.
+This exact background color must appear identically in both images.
+```
