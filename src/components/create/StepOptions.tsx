@@ -77,7 +77,7 @@ export function StepOptions({
               {detailOptions.basicDetails && <Check className="h-3 w-3 text-primary-foreground" />}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold">기본 상세컷 4장</p>
+              <p className="text-sm font-semibold">기본 상세컷 2장</p>
               <p className="text-xs text-muted-foreground">카테고리별 맞춤 상세컷 자동 생성</p>
             </div>
             

@@ -285,62 +285,78 @@ const CreatePage = () => {
         }
       })();
 
-      // Pre-detect color for consistent backgrounds across detail shots
+      // Pre-detect color for consistent backgrounds across detail shots (parallel with main shot)
       let detectedCategory: string | null = null;
       let backgroundTone: string | null = null;
+      let backgroundHex: string | null = null;
+      const detectColorPromise = (detailOptions.basicDetails && productBase64)
+        ? (async () => {
+            try {
+              const { data: colorData, error: colorError } = await supabase.functions.invoke("analyze-product", {
+                body: { action: "detect-color", productImageBase64: productBase64 },
+                headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+              });
+              if (!colorError && colorData?.detectedCategory && colorData?.backgroundTone) {
+                detectedCategory = colorData.detectedCategory;
+                backgroundTone = colorData.backgroundTone;
+                backgroundHex = colorData.backgroundHex || null;
+                console.log("Color detected:", { detectedCategory, backgroundTone, backgroundHex });
+              }
+            } catch (e) {
+              console.error("Color detection failed, proceeding without:", e);
+            }
+          })()
+        : Promise.resolve();
+
+      // Run main shot + detect-color in parallel
+      const [mainImage] = await Promise.all([mainShotPromise, detectColorPromise]);
+
+      // Sequential detail shot generation: Shot 1 first, then Shot 2 with reference
+      const detailMap: Record<string, string> = {};
       if (detailOptions.basicDetails && productBase64) {
+        // Shot 1: generate independently
         try {
-          const { data: colorData, error: colorError } = await supabase.functions.invoke("analyze-product", {
-            body: { action: "detect-color", productImageBase64: productBase64 },
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: {
+              action: "generate-basic-details",
+              productImageBase64: productBase64,
+              shotIndex: 1,
+              ...(detectedCategory && backgroundTone ? { detectedCategory, backgroundTone } : {}),
+              ...(backgroundHex ? { backgroundHex } : {}),
+            },
             headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
           });
-          if (!colorError && colorData?.detectedCategory && colorData?.backgroundTone) {
-            detectedCategory = colorData.detectedCategory;
-            backgroundTone = colorData.backgroundTone;
-            console.log("Color detected:", { detectedCategory, backgroundTone });
+          if (!error && data?.imageDataUri) {
+            detailMap["basic-1"] = data.imageDataUri;
+          } else {
+            console.error("Detail shot 1 failed:", error || data?.error);
           }
         } catch (e) {
-          console.error("Color detection failed, proceeding without:", e);
+          console.error("Detail shot 1 error:", e);
         }
-      }
 
-      // Build detail shot promises (parallel)
-      const detailPromises: Promise<{ key: string; uri: string | null }>[] = [];
-      if (detailOptions.basicDetails && productBase64) {
-        for (let i = 1; i <= 4; i++) {
-          detailPromises.push(
-            (async () => {
-              try {
-                const { data, error } = await supabase.functions.invoke("analyze-product", {
-                  body: {
-                    action: "generate-basic-details",
-                    productImageBase64: productBase64,
-                    shotIndex: i,
-                    ...(detectedCategory && backgroundTone ? { detectedCategory, backgroundTone } : {}),
-                  },
-                  headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
-                });
-                if (!error && data?.imageDataUri) {
-                  return { key: `basic-${i}`, uri: data.imageDataUri };
-                }
-                console.error(`Detail shot ${i} failed:`, error || data?.error);
-                return { key: `basic-${i}`, uri: null };
-              } catch (detailErr) {
-                console.error(`Detail shot ${i} error:`, detailErr);
-                return { key: `basic-${i}`, uri: null };
-              }
-            })()
-          );
+        // Shot 2: use Shot 1 result as reference image
+        try {
+          const shot1Base64 = detailMap["basic-1"] || null;
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: {
+              action: "generate-basic-details",
+              productImageBase64: productBase64,
+              shotIndex: 2,
+              ...(detectedCategory && backgroundTone ? { detectedCategory, backgroundTone } : {}),
+              ...(backgroundHex ? { backgroundHex } : {}),
+              ...(shot1Base64 ? { referenceImageBase64: shot1Base64 } : {}),
+            },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+          if (!error && data?.imageDataUri) {
+            detailMap["basic-2"] = data.imageDataUri;
+          } else {
+            console.error("Detail shot 2 failed:", error || data?.error);
+          }
+        } catch (e) {
+          console.error("Detail shot 2 error:", e);
         }
-      }
-
-      // Run main shot + basic details in parallel
-      const [mainImage, ...detailResults] = await Promise.all([mainShotPromise, ...detailPromises]);
-
-      // Collect basic detail results
-      const detailMap: Record<string, string> = {};
-      for (const r of detailResults) {
-        if (r.uri) detailMap[r.key] = r.uri;
       }
 
       // Update main image immediately
@@ -467,7 +483,7 @@ const CreatePage = () => {
               <p className="text-lg font-semibold">
                 {isGenerating
                   ? detailOptions.basicDetails
-                    ? "메인 컨셉샷 + 상세컷 4장을 생성 중입니다..."
+                    ? "메인 컨셉샷 + 상세컷 2장을 생성 중입니다..."
                     : "메인 컨셉샷을 생성 중입니다..."
                   : currentStep === 1
                   ? "AI가 제품을 분석 중입니다..."
