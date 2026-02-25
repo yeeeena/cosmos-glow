@@ -37,8 +37,6 @@ function buildResults(options: DetailOptions) {
     basicResults.push(
       { id: "basic-1", label: "Image 1" },
       { id: "basic-2", label: "Image 2" },
-      { id: "basic-3", label: "Image 3" },
-      { id: "basic-4", label: "Image 4" },
     );
   }
 

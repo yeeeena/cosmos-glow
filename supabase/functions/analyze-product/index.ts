@@ -488,17 +488,19 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
             content: [
               { type: "image_url", image_url: { url: prodUrl } },
               {
-                type: "text",
+              type: "text",
                 text: `Analyze this product image. Determine the product category and extract the dominant color of the product (liquid or packaging tone).
 Return ONLY a JSON object:
 {
   "detectedCategory": "BEAUTY" or "TECH" or "FOOD",
   "dominantColor": "1-2 word color description in English (e.g. coral pink, mint green, deep navy)",
+  "backgroundHex": "#XXXXXX (the exact RGB hex code for an extremely light, near-white pastel tint derived from the dominant product color)",
   "backgroundTone": "very light near-white [color]-tinted studio background with bright white lighting"
 }
-The backgroundTone must be an extremely light, almost white pastel tint derived from the dominant product color.
-Think of it as a white studio background with just a subtle hint of the product color.
-The background should look nearly white with soft white studio lighting — only a faint trace of color should be visible.
+The backgroundHex must be a specific hex color code (e.g. #F5E6E0, #E8F0E8, #E6E8F0).
+It should be an extremely light, almost white pastel tint derived from the dominant product color.
+The backgroundTone is a text description of the same color.
+Both must represent the same color — a white studio background with just a subtle hint of the product color.
 Return ONLY the JSON. No markdown, no explanation.`,
               },
             ],
@@ -619,7 +621,7 @@ Return ONLY the JSON. No markdown, no explanation.`;
 
     // ─── ACTION: generate-basic-details ───
     if (action === "generate-basic-details") {
-      const { productImageBase64, shotIndex, detectedCategory, backgroundTone } = body;
+      const { productImageBase64, shotIndex, detectedCategory, backgroundTone, backgroundHex, referenceImageBase64: refImageBase64 } = body;
       if (!productImageBase64 || shotIndex === undefined) {
         return new Response(JSON.stringify({ error: "productImageBase64 and shotIndex are required" }), {
           status: 400,
@@ -638,19 +640,30 @@ The background tone has been pre-determined: "${backgroundTone}". Use EXACTLY th
         : `Color Adaptation
 Extract the dominant product color (liquid or packaging tone). Use this color ONLY to generate a lighter, pastel-toned background. Do NOT alter the product color itself. Background = softened, desaturated variation of the product color.`;
 
-      // Build background color section with pre-detected override if available
-      const backgroundColorSection = backgroundTone
-        ? `BACKGROUND COLOR
+      // Build background color section with hex code enforcement
+      let backgroundColorSection: string;
+      if (backgroundHex && backgroundTone) {
+        backgroundColorSection = `BACKGROUND COLOR
+Use EXACTLY this hex color as the background: ${backgroundHex}
+The background tone description: "${backgroundTone}".
+The background must be this exact color (${backgroundHex}) with bright white studio lighting.
+This exact background color must appear identically in both images.
+Do NOT re-analyze or change the background color.
+No hue shifts, no brightness changes, no gradients between shots.`;
+      } else if (backgroundTone) {
+        backgroundColorSection = `BACKGROUND COLOR
 The background tone has been pre-determined: "${backgroundTone}".
 Use EXACTLY this tone for the background in ALL images.
 Do NOT re-analyze or change the background color.
-This exact background tone must appear identically in all 4 images.
-No hue shifts, no brightness changes, no gradients between shots.`
-        : `BACKGROUND COLOR
+This exact background tone must appear identically in both images.
+No hue shifts, no brightness changes, no gradients between shots.`;
+      } else {
+        backgroundColorSection = `BACKGROUND COLOR
 Analyze the uploaded product and extract its single most dominant color.
 Derive one pastel-toned background color from that dominant color.
-This exact background tone must appear identically in all 4 images.
+This exact background tone must appear identically in both images.
 No hue shifts, no brightness changes, no gradients between shots.`;
+      }
 
       const systemPrompt = `You are a high-end commercial product photography AI. When a user uploads a product image, perform the following steps in order:
 
@@ -674,25 +687,25 @@ Format: 4:5 vertical (portrait) per image.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚙️ UNIFIED VISUAL SYSTEM DEFINITION
-(Defined once per session — locked across ALL 4 images)
+(Defined once per session — locked across BOTH images)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${backgroundColorSection}
 
 LIGHTING SETUP
-One consistent lighting rig is applied across all 4 images:
+One consistent lighting rig is applied across both images:
 - Key light: large softbox at 45° upper-left, soft and diffused
 - Rim light: subtle backlight creating a clean edge separation
 - Fill light: low-intensity diffused fill from the right to reduce harsh shadows
 This exact lighting direction, intensity, and quality must not change between shots.
 
 SURFACE & SHADOW
-All 4 images share the same surface treatment:
+Both images share the same surface treatment:
 - Surface: matte finish, same tone as the background with a slight value contrast only
-- Shadow: soft natural contact shadow, consistent direction and softness across all images
+- Shadow: soft natural contact shadow, consistent direction and softness across both images
 
 COLOR GRADE & MOOD
-One unified color grade is applied across all 4 images:
+One unified color grade is applied across both images:
 - Color temperature: inferred from the product (warm / neutral / cool)
 - Contrast: medium-low, premium editorial style
 - Saturation: slightly desaturated for a luxury, high-end feel
@@ -700,7 +713,7 @@ One unified color grade is applied across all 4 images:
 
 PRODUCT IDENTITY LOCK
 The uploaded product's shape, proportions, label layout, typography, logo, color, material finish,
-and surface detail must remain completely identical across all 4 images.
+and surface detail must remain completely identical across both images.
 No variation in product rendering between shots is permitted.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -714,26 +727,14 @@ The product must remain crisp, well-defined, and visually solid across all shots
 All background, lighting, surface, shadow, and color grade values:
 → Follow UNIFIED VISUAL SYSTEM above. Do not redefine per shot.
 
-🖼 BEAUTY — Individual Shot List (4 Images Total)
-[BEAUTY — Image 1] Hero Center
-COMPOSITION: Bottle centered on the unified surface. Full product visible, clean and authoritative.
-Camera: straight-on eye-level, centered.
-All environment values: UNIFIED VISUAL SYSTEM.
-NO PROPS / NO FLOWERS / NO FRUITS / NO OBJECTS / NO HUMAN HANDS.
-
-[BEAUTY — Image 2] Top-Down Flat Lay
+🖼 BEAUTY — Individual Shot List (2 Images Total)
+[BEAUTY — Image 1] Top-Down Flat Lay
 COMPOSITION: Minimal bird's-eye view. Product perfectly centered on the unified background surface.
 Camera: directly overhead, 90° top-down.
 All environment values: UNIFIED VISUAL SYSTEM.
 NO PROPS / NO FLOWERS / NO FRUITS / NO OBJECTS / NO HUMAN HANDS.
 
-[BEAUTY — Image 3] Viscous Drip
-COMPOSITION: Extreme close-up of the serum or liquid texture flowing naturally down the glass surface.
-Liquid only — no tools, no hands, no full bottle visible.
-Macro lens rendering, ultra-sharp texture detail.
-All environment values: UNIFIED VISUAL SYSTEM.
-
-[BEAUTY — Image 4] Hand & Product Portrait
+[BEAUTY — Image 2] Hand & Product Portrait
 COMPOSITION: A minimal shot of a Korean woman's hand gently holding the product.
 Only the hand is visible — no face, no body, no other elements.
 The product label and identity must remain fully visible and unaltered.
@@ -750,7 +751,7 @@ The product must remain crisp, precise, and physically realistic across all shot
 All background, lighting, surface, shadow, and color grade values:
 → Follow UNIFIED VISUAL SYSTEM above. Do not redefine per shot.
 
-🖼 TECH — Individual Shot List (4 Images Total)
+🖼 TECH — Individual Shot List (2 Images Total)
 [TECH — Image 1] Hero Front View
 COMPOSITION: Clean, centered hero shot. Full product visible, emphasizing overall form and silhouette.
 Camera: straight-on, eye-level, centered.
@@ -760,20 +761,6 @@ NO HUMAN PRESENCE.
 [TECH — Image 2] Angled 3/4 View
 COMPOSITION: Three-quarter angle highlighting depth, curvature, and dimensionality of the product.
 Camera: 45° horizontal offset, slight elevation.
-All environment values: UNIFIED VISUAL SYSTEM.
-NO HUMAN PRESENCE.
-
-[TECH — Image 3] Functional Detail
-COMPOSITION: Close-up of one key functional element — button, speaker grille, port,
-indicator light, hinge, or control surface.
-Macro rendering, ultra-sharp surface and material detail.
-All environment values: UNIFIED VISUAL SYSTEM.
-NO HUMAN PRESENCE.
-
-[TECH — Image 4] Low-Angle Hero
-COMPOSITION: Subtle low-angle shot enhancing presence and premium feel.
-No dramatic distortion or exaggeration — grounded and authoritative.
-Camera: low angle, slight upward tilt.
 All environment values: UNIFIED VISUAL SYSTEM.
 NO HUMAN PRESENCE.
 
@@ -792,7 +779,7 @@ The inferred food must be consistent and identical across all shots where it app
 All background, lighting, surface, shadow, and color grade values:
 → Follow UNIFIED VISUAL SYSTEM above. Do not redefine per shot.
 
-🖼 FOOD — Individual Shot List (4 Images Total)
+🖼 FOOD — Individual Shot List (2 Images Total)
 [FOOD — Image 1] Package + Food Composition
 COMPOSITION: The package placed beside the inferred food product.
 Clearly communicates what the package contains.
@@ -800,21 +787,7 @@ Camera: slight 3/4 angle, natural eye-level.
 All environment values: UNIFIED VISUAL SYSTEM.
 NO HUMAN PRESENCE.
 
-[FOOD — Image 2] Food Close-Up
-COMPOSITION: Detailed close-up of the food texture, ingredients, or surface.
-Appetizing, realistic, and premium in rendering.
-Camera: macro or tight close-up, overhead or slight angle.
-All environment values: UNIFIED VISUAL SYSTEM.
-NO HUMAN PRESENCE.
-
-[FOOD — Image 3] Ingredient / Texture Detail
-COMPOSITION: Extreme close-up focusing on ingredients, layers, or internal structure of the food.
-Ultra-sharp texture rendering, emphasis on depth and detail.
-Camera: macro lens, tight crop.
-All environment values: UNIFIED VISUAL SYSTEM.
-NO HUMAN PRESENCE.
-
-[FOOD — Image 4] Hero Lifestyle Angle
+[FOOD — Image 2] Hero Lifestyle Angle
 COMPOSITION: Low or natural eye-level angle combining the package and food.
 Strong, appetizing final hero composition. Feels editorial and aspirational.
 Camera: low angle, slight upward tilt toward package.
@@ -834,17 +807,38 @@ Visual Consistency Enforcement: Before rendering each image, re-check that the f
 - Product shape, label, and finish
 Brand / Typography Integrity: Follow the reference label or packaging exactly. No font changes, no reinterpretation of logo or label.
 Product Identity: The uploaded product must not be reshaped, recolored, or redesigned in any shot.
-No Human Presence: No hands, no faces — EXCEPT [BEAUTY — Image 4].`;
+No Human Presence: No hands, no faces — EXCEPT [BEAUTY — Image 2].`;
 
-      // Build shot instruction with mandatory background if provided
+      // Build shot instruction with mandatory background + hex enforcement
       let shotInstruction: string;
+      const bgHexNote = backgroundHex ? `\nMANDATORY BACKGROUND HEX: Use EXACTLY this hex color as the background: ${backgroundHex}. The background must be this exact color.` : "";
       if (detectedCategory && backgroundTone) {
         shotInstruction = `The product category is ${detectedCategory}.
-MANDATORY BACKGROUND: Use exactly "${backgroundTone}" as the background for this image. Do NOT choose a different background color.
+MANDATORY BACKGROUND: Use exactly "${backgroundTone}" as the background for this image. Do NOT choose a different background color.${bgHexNote}
 Now generate ONLY [${detectedCategory} — Image ${shotIndex}]. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.`;
       } else {
-        shotInstruction = `Now generate ONLY Image ${shotIndex} for the detected category. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.`;
+        shotInstruction = `Now generate ONLY Image ${shotIndex} for the detected category. Generate exactly ONE standalone 4:5 vertical image. Do not generate any other images.${bgHexNote}`;
       }
+
+      // If shotIndex=2 and reference image provided, add reference matching instruction
+      if (shotIndex === 2 && refImageBase64) {
+        shotInstruction += `\n\nIMPORTANT — REFERENCE IMAGE MATCHING:
+The second image attached below is the reference shot (Image 1 already generated).
+You MUST match its background color, lighting direction, surface texture, and overall color grade EXACTLY.
+The two images must look like they belong to the same photographic series with identical environments.`;
+      }
+
+      // Build user content with product image + optional reference image
+      const userContent: unknown[] = [
+        { type: "image_url", image_url: { url: prodUrl } },
+      ];
+      if (shotIndex === 2 && refImageBase64) {
+        const refUrl = refImageBase64.startsWith("data:")
+          ? refImageBase64
+          : `data:image/jpeg;base64,${refImageBase64}`;
+        userContent.push({ type: "image_url", image_url: { url: refUrl } });
+      }
+      userContent.push({ type: "text", text: shotInstruction });
 
       console.log(`AI call: generate-basic-details shotIndex=${shotIndex} started`);
       const result = await callLovableAI({
@@ -853,10 +847,7 @@ Now generate ONLY [${detectedCategory} — Image ${shotIndex}]. Generate exactly
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: [
-              { type: "image_url", image_url: { url: prodUrl } },
-              { type: "text", text: shotInstruction },
-            ],
+            content: userContent,
           },
         ],
         modalities: ["image", "text"],
