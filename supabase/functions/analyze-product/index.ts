@@ -1015,6 +1015,108 @@ ${ratioInstruction ? `Output format: ${ratioInstruction}.` : "Output format: 4:5
       });
     }
 
+    // ─── ACTION: outpaint ───
+    if (action === "outpaint") {
+      const { imageBase64, aspectRatio } = body;
+      if (!imageBase64 || !aspectRatio) {
+        return new Response(JSON.stringify({ error: "imageBase64 and aspectRatio are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (aspectRatio === "1:1") {
+        return new Response(JSON.stringify({ imageDataUri: imageBase64 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const aspectRatioDescriptions: Record<string, string> = {
+        "9:16": "vertical 9:16 portrait format (significantly taller than wide)",
+        "16:9": "horizontal 16:9 landscape format (significantly wider than tall)",
+        "3:4":  "vertical 3:4 portrait format (slightly taller than wide)",
+        "4:3":  "horizontal 4:3 landscape format (slightly wider than tall)",
+      };
+      const ratioDesc = aspectRatioDescriptions[aspectRatio] || aspectRatio;
+
+      const dataUrl = imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
+
+      const outpaintPrompt = `You are an expert photo compositor. The uploaded image is a product photograph shot in a studio.
+
+YOUR TASK: Extend/expand this image canvas to fit a ${ratioDesc}, by naturally continuing the existing background beyond the current image edges.
+
+STRICT RULES:
+- Keep the product EXACTLY as-is: same size, same position, same lighting, same labels — DO NOT alter the product in any way
+- Extend ONLY the background/studio environment to fill the new canvas area
+- The extended background must seamlessly blend with the existing background (same color, gradient, vignette, lighting direction)
+- Do NOT add any new objects, props, people, or elements in the extended area
+- Do NOT crop or resize the product — it must remain the same size
+- The product stays centered horizontally in the final image
+- Maintain identical background color temperature, texture, and lighting throughout the extended area
+- The final result must look like the photo was originally composed at ${ratioDesc}
+
+OUTPUT: A single cohesive image at ${ratioDesc} with the product centered and the background naturally extended.`;
+
+      console.log(`AI call: outpaint started (${aspectRatio})`);
+      const result = await callLovableAI({
+        model: "google/gemini-3-pro-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: dataUrl } },
+              { type: "text", text: outpaintPrompt },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+        temperature: 1,
+      });
+      console.log(`AI call: outpaint completed (${aspectRatio})`);
+
+      if (result.rateLimited) {
+        const msg = result.status === 429
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+          : "크레딧이 부족합니다. Lovable 설정에서 크레딧을 추가해주세요.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status: result.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Extract image from multimodal response
+      let imageDataUri: string | null = null;
+      const choices = result.data?.choices;
+      const images = choices?.[0]?.message?.images;
+      if (Array.isArray(images) && images.length > 0) {
+        imageDataUri = images[0]?.image_url?.url || null;
+      }
+      if (!imageDataUri) {
+        const msgContent = choices?.[0]?.message?.content;
+        if (Array.isArray(msgContent)) {
+          for (const part of msgContent) {
+            if (part.type === "image_url" && part.image_url?.url) { imageDataUri = part.image_url.url; break; }
+            if (part.type === "image" && part.image?.url) { imageDataUri = part.image.url; break; }
+            if (part.inline_data) { imageDataUri = `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`; break; }
+          }
+        } else if (typeof msgContent === "string" && msgContent.startsWith("data:")) {
+          imageDataUri = msgContent;
+        }
+      }
+
+      if (!imageDataUri) {
+        console.error("No image in outpaint response");
+        return new Response(JSON.stringify({ error: "아웃페인팅에 실패했습니다. 다시 시도해주세요." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ imageDataUri }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid action." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -61,14 +61,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /**
- * Canvas 기반 비율 조정:
- * - 1:1은 원본 그대로 반환
- * - 나머지 비율은 1:1 이미지를 중앙에 배치하고,
- *   코너 픽셀 색상을 샘플링해 배경을 확장하여 목표 비율 달성
+ * Canvas 기반 비율 조정 (AI 아웃페인팅 실패 시 폴백용):
+ * 코너 픽셀 색상을 샘플링해 단색으로 배경 확장
  */
-const extendImageToRatio = (imageDataUri: string, aspectRatio: string): Promise<string> => {
+const extendImageToRatioCanvas = (imageDataUri: string, aspectRatio: string): Promise<string> => {
   if (!imageDataUri || aspectRatio === "1:1") return Promise.resolve(imageDataUri);
-
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -77,59 +74,28 @@ const extendImageToRatio = (imageDataUri: string, aspectRatio: string): Promise<
       const [rw, rh] = aspectRatio.split(":").map(Number);
       const targetRatio = rw / rh;
       const srcRatio = srcW / srcH;
-
       let targetW: number, targetH: number;
-      if (targetRatio > srcRatio) {
-        // 가로 확장 (16:9, 4:3)
-        targetH = srcH;
-        targetW = Math.round(srcH * targetRatio);
-      } else {
-        // 세로 확장 (9:16, 3:4)
-        targetW = srcW;
-        targetH = Math.round(srcW / targetRatio);
-      }
-
-      // 소스 이미지 코너에서 배경 색상 샘플링
+      if (targetRatio > srcRatio) { targetH = srcH; targetW = Math.round(srcH * targetRatio); }
+      else { targetW = srcW; targetH = Math.round(srcW / targetRatio); }
       const tmpCanvas = document.createElement("canvas");
-      tmpCanvas.width = srcW;
-      tmpCanvas.height = srcH;
+      tmpCanvas.width = srcW; tmpCanvas.height = srcH;
       const tmpCtx = tmpCanvas.getContext("2d")!;
       tmpCtx.drawImage(img, 0, 0);
-
-      const sampleSize = 8;
+      const s = 8;
       const corners = [
-        tmpCtx.getImageData(0, 0, sampleSize, sampleSize).data,
-        tmpCtx.getImageData(srcW - sampleSize, 0, sampleSize, sampleSize).data,
-        tmpCtx.getImageData(0, srcH - sampleSize, sampleSize, sampleSize).data,
-        tmpCtx.getImageData(srcW - sampleSize, srcH - sampleSize, sampleSize, sampleSize).data,
+        tmpCtx.getImageData(0, 0, s, s).data,
+        tmpCtx.getImageData(srcW - s, 0, s, s).data,
+        tmpCtx.getImageData(0, srcH - s, s, s).data,
+        tmpCtx.getImageData(srcW - s, srcH - s, s, s).data,
       ];
-
-      let totalR = 0, totalG = 0, totalB = 0, count = 0;
-      for (const pixels of corners) {
-        for (let i = 0; i < pixels.length; i += 4) {
-          totalR += pixels[i];
-          totalG += pixels[i + 1];
-          totalB += pixels[i + 2];
-          count++;
-        }
-      }
-      const avgR = Math.round(totalR / count);
-      const avgG = Math.round(totalG / count);
-      const avgB = Math.round(totalB / count);
-
-      // 확장 캔버스 생성: 배경색으로 채우고 원본 이미지 중앙 배치
+      let tR = 0, tG = 0, tB = 0, cnt = 0;
+      for (const p of corners) for (let i = 0; i < p.length; i += 4) { tR += p[i]; tG += p[i+1]; tB += p[i+2]; cnt++; }
       const canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
+      canvas.width = targetW; canvas.height = targetH;
       const ctx = canvas.getContext("2d")!;
-
-      ctx.fillStyle = `rgb(${avgR}, ${avgG}, ${avgB})`;
+      ctx.fillStyle = `rgb(${Math.round(tR/cnt)},${Math.round(tG/cnt)},${Math.round(tB/cnt)})`;
       ctx.fillRect(0, 0, targetW, targetH);
-
-      const offsetX = Math.round((targetW - srcW) / 2);
-      const offsetY = Math.round((targetH - srcH) / 2);
-      ctx.drawImage(img, offsetX, offsetY);
-
+      ctx.drawImage(img, Math.round((targetW - srcW) / 2), Math.round((targetH - srcH) / 2));
       resolve(canvas.toDataURL("image/jpeg", 0.92));
     };
     img.onerror = () => resolve(imageDataUri);
@@ -184,6 +150,27 @@ const CreatePage = () => {
   const [detailGeneratingIndex, setDetailGeneratingIndex] = useState(-1);
   const [referenceAnalysis, setReferenceAnalysis] = useState<Record<string, string> | null>(null);
   const [detailRecommendation, setDetailRecommendation] = useState<DetailRecommendation | null>(null);
+
+  /**
+   * AI 아웃페인팅: 생성된 이미지를 목표 비율로 배경을 자연스럽게 확장
+   * 실패 시 Canvas 단색 채우기로 폴백
+   */
+  const outpaintToRatio = async (imageDataUri: string, aspectRatio: string): Promise<string> => {
+    if (!imageDataUri || aspectRatio === "1:1") return imageDataUri;
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-product", {
+        body: { action: "outpaint", imageBase64: imageDataUri, aspectRatio },
+        headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+      });
+      if (!error && !data?.error && data?.imageDataUri) {
+        return data.imageDataUri;
+      }
+      console.warn("Outpaint failed, falling back to canvas:", error || data?.error);
+    } catch (e) {
+      console.warn("Outpaint error, falling back to canvas:", e);
+    }
+    return extendImageToRatioCanvas(imageDataUri, aspectRatio);
+  };
 
   const analyzeProductForTexture = async (): Promise<boolean> => {
     if (!productImage) return false;
@@ -450,7 +437,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
       const [rawMainImage] = await Promise.all([mainShotPromise, detectColorPromise]);
       // 비율 조정: 1:1 기준 생성 후 배경을 확장해 목표 비율 달성
       const mainImage = rawMainImage
-        ? await extendImageToRatio(rawMainImage, detailOptions.mainAspectRatio)
+        ? await outpaintToRatio(rawMainImage, detailOptions.mainAspectRatio)
         : null;
 
       // Sequential detail shot generation: Shot 1 first, then Shot 2 with reference
@@ -469,7 +456,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
             headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
           });
           if (!error && data?.imageDataUri) {
-            detailMap["basic-1"] = await extendImageToRatio(data.imageDataUri, detailOptions.basicAspectRatio);
+            detailMap["basic-1"] = await outpaintToRatio(data.imageDataUri, detailOptions.basicAspectRatio);
           } else {
             console.error("Detail shot 1 failed:", error || data?.error);
           }
@@ -492,7 +479,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
             headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
           });
           if (!error && data?.imageDataUri) {
-            detailMap["basic-2"] = await extendImageToRatio(data.imageDataUri, detailOptions.basicAspectRatio);
+            detailMap["basic-2"] = await outpaintToRatio(data.imageDataUri, detailOptions.basicAspectRatio);
           } else {
             console.error("Detail shot 2 failed:", error || data?.error);
           }
@@ -555,7 +542,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
                   headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
                 });
                 if (!error && data?.imageDataUri) {
-                  const extended = await extendImageToRatio(data.imageDataUri, detailOptions.aiAspectRatio);
+                  const extended = await outpaintToRatio(data.imageDataUri, detailOptions.aiAspectRatio);
                   return { key: detailId, uri: extended };
                 }
                 console.error(`AI detail ${detailId} failed:`, error || data?.error);
