@@ -12,10 +12,12 @@ export default {
         "2xl": "1400px",
       },
     },
+    /* Tailwind 기본 sans 스택을 Pretendard로 완전 교체 (extend 밖) */
+    fontFamily: {
+      sans: ["Pretendard", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+      mono: ["Pretendard", "ui-monospace", "SFMono-Regular", "monospace"],
+    },
     extend: {
-      fontFamily: {
-        sans: ["Pretendard", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
-      },
       fontWeight: {
         label: "500",
       },

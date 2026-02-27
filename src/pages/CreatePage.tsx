@@ -474,12 +474,16 @@ const CreatePage = () => {
       <div className="flex-1 overflow-y-auto p-6 flex">
         {/* Analyzing loading screen */}
         {isAnalyzing || isGenerating ? (
-          <div className="flex flex-col items-center justify-center flex-1 gap-6">
-            <div className="relative h-16 w-16">
+          <div className="flex flex-col items-center justify-center flex-1 gap-8">
+            {/* Animated logo/spinner */}
+            <div className="relative h-20 w-20">
               <div className="absolute inset-0 rounded-full border-4 border-muted" />
               <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+              <div className="absolute inset-3 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="h-3 w-3 rounded-full bg-primary animate-pulse" />
+              </div>
             </div>
-            <div className="text-center space-y-1">
+            <div className="text-center space-y-2 max-w-xs">
               <p className="text-lg font-semibold">
                 {isGenerating
                   ? detailOptions.basicDetails
@@ -491,7 +495,7 @@ const CreatePage = () => {
                   ? "AI가 레퍼런스를 분석 중입니다..."
                   : "AI가 제품을 분석 중입니다..."}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 {isGenerating
                   ? "고품질 이미지를 생성하고 있어요. 잠시만 기다려주세요"
                   : currentStep === 1
@@ -501,8 +505,13 @@ const CreatePage = () => {
                   : "제품 특성에 맞는 텍스처를 자동으로 선택하고 있어요"}
               </p>
             </div>
-            <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+            <div className="w-64 space-y-2">
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary/60 via-primary to-primary/60 rounded-full animate-pulse w-2/3" />
+              </div>
+              <p className="text-center text-xs text-muted-foreground/60">
+                {isGenerating ? "약 30초 소요됩니다" : "잠시만 기다려주세요"}
+              </p>
             </div>
           </div>
         ) : showResult ? (

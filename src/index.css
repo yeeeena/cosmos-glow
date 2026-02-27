@@ -6,46 +6,86 @@
 
 @layer base {
   :root {
-    --background: 0 0% 5.1%;
-    --foreground: 0 0% 100%;
+    /* ── Align UI 2.0 Dark Theme ── */
 
-    --card: 0 0% 10.2%;
-    --card-foreground: 0 0% 100%;
+    /* Background */
+    --background: 0 0% 5.5%;          /* #0e0e0e */
+    --foreground: 0 0% 98%;           /* #fafafa */
 
-    --popover: 0 0% 10.2%;
-    --popover-foreground: 0 0% 100%;
+    /* Card — 레이어드 배경 */
+    --card: 0 0% 9%;                  /* #171717 */
+    --card-foreground: 0 0% 98%;
 
-    --primary: 222 100% 55.3%;
+    /* Elevated card (popover) */
+    --popover: 0 0% 11%;              /* #1c1c1c */
+    --popover-foreground: 0 0% 98%;
+
+    /* Primary — Align UI Blue */
+    --primary: 222 100% 55.3%;        /* #1b62ff */
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 222 100% 62%;
-    --primary-pressed: 222 100% 46%;
-    --primary-glow: 0 0 16px rgba(27, 98, 255, 0.35);
+    --primary-hover: 222 100% 60%;
+    --primary-pressed: 222 100% 47%;
+    --primary-subtle: 222 100% 55.3% / 0.12; /* alpha */
 
-    --secondary: 0 0% 13.3%;
-    --secondary-foreground: 0 0% 100%;
+    /* Secondary — neutral dark */
+    --secondary: 0 0% 14%;            /* #242424 */
+    --secondary-foreground: 0 0% 88%; /* #e0e0e0 */
 
-    --muted: 0 0% 13.3%;
-    --muted-foreground: 0 0% 66.7%;
+    /* Muted — Align UI neutral */
+    --muted: 0 0% 12%;                /* #1f1f1f */
+    --muted-foreground: 0 0% 56%;     /* #8f8f8f */
 
-    --accent: 0 0% 16.5%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent — subtle hover */
+    --accent: 0 0% 16%;               /* #292929 */
+    --accent-foreground: 0 0% 95%;
 
-    --destructive: 0 84.2% 60.2%;
+    /* Success */
+    --success: 152 69% 44%;           /* #22c55e */
+    --success-foreground: 0 0% 100%;
+
+    /* Warning */
+    --warning: 38 92% 50%;            /* #f59e0b */
+    --warning-foreground: 0 0% 100%;
+
+    /* Destructive */
+    --destructive: 0 72% 58%;         /* #e74444 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 16.5%;
-    --input: 0 0% 16.5%;
+    /* Border — Align UI: subtle 구분선 */
+    --border: 0 0% 15%;               /* #262626 */
+    --border-strong: 0 0% 22%;        /* #383838 */
+    --input: 0 0% 15%;
     --ring: 222 100% 55.3%;
 
-    --radius: 0.75rem;
+    /* ── Align UI Radius System ── */
+    /* xs=4px, sm=8px, md=10px, lg=12px, xl=16px, 2xl=20px, 3xl=28px */
+    --radius: 0.75rem;                /* 12px base */
+    --radius-xs: 0.25rem;             /* 4px */
+    --radius-sm: 0.5rem;              /* 8px */
+    --radius-md: 0.625rem;            /* 10px */
+    --radius-lg: 0.75rem;             /* 12px */
+    --radius-xl: 1rem;                /* 16px */
+    --radius-2xl: 1.25rem;            /* 20px */
+    --radius-3xl: 1.75rem;            /* 28px */
 
-    --sidebar-background: 0 0% 6.7%;
-    --sidebar-foreground: 0 0% 66.7%;
+    /* ── Align UI Shadow System ── */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.35);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.55), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+    /* Align UI 특유의 soft glow shadow */
+    --shadow-primary: 0 0 0 1px rgba(27, 98, 255, 0.15), 0 4px 20px rgba(27, 98, 255, 0.25);
+    --shadow-primary-lg: 0 0 24px rgba(27, 98, 255, 0.35), 0 4px 8px rgba(27, 98, 255, 0.15);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 56%;
     --sidebar-primary: 222 100% 55.3%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 13.3%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 16.5%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 0 0% 13%;
     --sidebar-ring: 222 100% 55.3%;
   }
 }
@@ -53,14 +93,86 @@
 @layer base {
   * {
     @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
+    /* 모든 요소에 Pretendard 강제 적용 */
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-bold;
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* input, button, textarea 등 form 요소는 브라우저가 폰트 상속을 차단하므로 명시 */
+  input, button, textarea, select, optgroup {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+
+  /* ── Align UI Typography Scale ── */
+  h1 { @apply text-3xl font-semibold tracking-tight; }
+  h2 { @apply text-2xl font-semibold tracking-tight; }
+  h3 { @apply text-xl font-semibold; }
+  h4 { @apply text-lg font-medium; }
+  h5 { @apply text-base font-medium; }
+  h6 { @apply text-sm font-medium; }
+
+  /* Align UI: subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer utilities {
+  /* ── Align UI Shadow Utilities ── */
+  .shadow-primary {
+    box-shadow: var(--shadow-primary);
+  }
+  .shadow-primary-lg {
+    box-shadow: var(--shadow-primary-lg);
+  }
+  .shadow-card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px hsl(var(--border));
+  }
+
+  /* ── Align UI Glass Effect ── */
+  .glass {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ── Align UI 텍스트 스타일 ── */
+  .text-label-xs  { @apply text-[11px] font-medium leading-4 tracking-wide; }
+  .text-label-sm  { @apply text-xs font-medium leading-4; }
+  .text-label-md  { @apply text-sm font-medium leading-5; }
+  .text-label-lg  { @apply text-base font-medium leading-6; }
+  .text-paragraph-sm { @apply text-xs font-normal leading-5; }
+  .text-paragraph-md { @apply text-sm font-normal leading-6; }
+  .text-paragraph-lg { @apply text-base font-normal leading-7; }
+
+  /* ── Align UI Glow 애니메이션 ── */
+  .glow-pulse {
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(27, 98, 255, 0.2); }
+    50%       { box-shadow: 0 0 24px rgba(27, 98, 255, 0.4); }
+  }
+
+  /* ── Align UI 선택 상태 ring ── */
+  .ring-primary-subtle {
+    box-shadow: 0 0 0 2px rgba(27, 98, 255, 0.35);
   }
 }
