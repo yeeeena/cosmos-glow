@@ -60,48 +60,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "기타",
 };
 
-/**
- * Canvas 기반 비율 조정 (AI 아웃페인팅 실패 시 폴백용):
- * 코너 픽셀 색상을 샘플링해 단색으로 배경 확장
- */
-const extendImageToRatioCanvas = (imageDataUri: string, aspectRatio: string): Promise<string> => {
-  if (!imageDataUri || aspectRatio === "1:1") return Promise.resolve(imageDataUri);
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const srcW = img.naturalWidth;
-      const srcH = img.naturalHeight;
-      const [rw, rh] = aspectRatio.split(":").map(Number);
-      const targetRatio = rw / rh;
-      const srcRatio = srcW / srcH;
-      let targetW: number, targetH: number;
-      if (targetRatio > srcRatio) { targetH = srcH; targetW = Math.round(srcH * targetRatio); }
-      else { targetW = srcW; targetH = Math.round(srcW / targetRatio); }
-      const tmpCanvas = document.createElement("canvas");
-      tmpCanvas.width = srcW; tmpCanvas.height = srcH;
-      const tmpCtx = tmpCanvas.getContext("2d")!;
-      tmpCtx.drawImage(img, 0, 0);
-      const s = 8;
-      const corners = [
-        tmpCtx.getImageData(0, 0, s, s).data,
-        tmpCtx.getImageData(srcW - s, 0, s, s).data,
-        tmpCtx.getImageData(0, srcH - s, s, s).data,
-        tmpCtx.getImageData(srcW - s, srcH - s, s, s).data,
-      ];
-      let tR = 0, tG = 0, tB = 0, cnt = 0;
-      for (const p of corners) for (let i = 0; i < p.length; i += 4) { tR += p[i]; tG += p[i+1]; tB += p[i+2]; cnt++; }
-      const canvas = document.createElement("canvas");
-      canvas.width = targetW; canvas.height = targetH;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = `rgb(${Math.round(tR/cnt)},${Math.round(tG/cnt)},${Math.round(tB/cnt)})`;
-      ctx.fillRect(0, 0, targetW, targetH);
-      ctx.drawImage(img, Math.round((targetW - srcW) / 2), Math.round((targetH - srcH) / 2));
-      resolve(canvas.toDataURL("image/jpeg", 0.92));
-    };
-    img.onerror = () => resolve(imageDataUri);
-    img.src = imageDataUri;
-  });
-};
 
 /** Resize image to max 1024px using Canvas API to reduce payload size */
 const resizeImage = (dataUrl: string, maxSize = 1024): Promise<string> => {
@@ -150,27 +108,6 @@ const CreatePage = () => {
   const [detailGeneratingIndex, setDetailGeneratingIndex] = useState(-1);
   const [referenceAnalysis, setReferenceAnalysis] = useState<Record<string, string> | null>(null);
   const [detailRecommendation, setDetailRecommendation] = useState<DetailRecommendation | null>(null);
-
-  /**
-   * AI 아웃페인팅: 생성된 이미지를 목표 비율로 배경을 자연스럽게 확장
-   * 실패 시 Canvas 단색 채우기로 폴백
-   */
-  const outpaintToRatio = async (imageDataUri: string, aspectRatio: string): Promise<string> => {
-    if (!imageDataUri || aspectRatio === "1:1") return imageDataUri;
-    try {
-      const { data, error } = await supabase.functions.invoke("analyze-product", {
-        body: { action: "outpaint", imageBase64: imageDataUri, aspectRatio },
-        headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
-      });
-      if (!error && !data?.error && data?.imageDataUri) {
-        return data.imageDataUri;
-      }
-      console.warn("Outpaint failed, falling back to canvas:", error || data?.error);
-    } catch (e) {
-      console.warn("Outpaint error, falling back to canvas:", e);
-    }
-    return extendImageToRatioCanvas(imageDataUri, aspectRatio);
-  };
 
   const analyzeProductForTexture = async (): Promise<boolean> => {
     if (!productImage) return false;
@@ -434,11 +371,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
         : Promise.resolve();
 
       // Run main shot + detect-color in parallel
-      const [rawMainImage] = await Promise.all([mainShotPromise, detectColorPromise]);
-      // 비율 조정: 1:1 기준 생성 후 배경을 확장해 목표 비율 달성
-      const mainImage = rawMainImage
-        ? await outpaintToRatio(rawMainImage, detailOptions.mainAspectRatio)
-        : null;
+      const [mainImage] = await Promise.all([mainShotPromise, detectColorPromise]);
 
       // Sequential detail shot generation: Shot 1 first, then Shot 2 with reference
       const detailMap: Record<string, string> = {};
@@ -456,7 +389,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
             headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
           });
           if (!error && data?.imageDataUri) {
-            detailMap["basic-1"] = await outpaintToRatio(data.imageDataUri, detailOptions.basicAspectRatio);
+            detailMap["basic-1"] = data.imageDataUri;
           } else {
             console.error("Detail shot 1 failed:", error || data?.error);
           }
@@ -479,7 +412,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
             headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
           });
           if (!error && data?.imageDataUri) {
-            detailMap["basic-2"] = await outpaintToRatio(data.imageDataUri, detailOptions.basicAspectRatio);
+            detailMap["basic-2"] = data.imageDataUri;
           } else {
             console.error("Detail shot 2 failed:", error || data?.error);
           }
@@ -542,8 +475,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
                   headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
                 });
                 if (!error && data?.imageDataUri) {
-                  const extended = await outpaintToRatio(data.imageDataUri, detailOptions.aiAspectRatio);
-                  return { key: detailId, uri: extended };
+                  return { key: detailId, uri: data.imageDataUri };
                 }
                 console.error(`AI detail ${detailId} failed:`, error || data?.error);
                 return { key: detailId, uri: null };

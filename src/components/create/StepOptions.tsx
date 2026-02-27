@@ -1,7 +1,6 @@
 import { Check, Image, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AIRecommendation, type DetailRecommendation } from "./AIRecommendation";
-import { AspectRatioSelector } from "./AspectRatioSelector";
 import { cn } from "@/lib/utils";
 
 interface DetailOptions {
@@ -60,12 +59,6 @@ export function StepOptions({
               <p className="text-paragraph-sm text-muted-foreground mt-0.5">선택한 스타일로 메인 컨셉샷 생성</p>
             </div>
           </div>
-          <div className="pt-2 border-t border-primary/15">
-            <AspectRatioSelector
-              value={detailOptions.mainAspectRatio}
-              onChange={(r) => onDetailOptionsChange({ ...detailOptions, mainAspectRatio: r })}
-            />
-          </div>
         </div>
 
         {/* Basic details */}
@@ -96,16 +89,6 @@ export function StepOptions({
               {detailOptions.basicDetails && <Check className="h-3 w-3 text-white" strokeWidth={2.5} />}
             </div>
           </button>
-          {detailOptions.basicDetails && (
-            <div className="px-4 pb-4">
-              <div className="pt-3 border-t border-primary/15">
-                <AspectRatioSelector
-                  value={detailOptions.basicAspectRatio}
-                  onChange={(r) => onDetailOptionsChange({ ...detailOptions, basicAspectRatio: r })}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         {/* AI recommended */}
@@ -147,16 +130,6 @@ export function StepOptions({
               {detailOptions.aiRecommended && <Check className="h-3 w-3 text-white" strokeWidth={2.5} />}
             </div>
           </button>
-          {detailOptions.aiRecommended && (
-            <div className="px-4 pb-4">
-              <div className="pt-3 border-t border-primary/15">
-                <AspectRatioSelector
-                  value={detailOptions.aiAspectRatio}
-                  onChange={(r) => onDetailOptionsChange({ ...detailOptions, aiAspectRatio: r })}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         {detailOptions.aiRecommended && (
