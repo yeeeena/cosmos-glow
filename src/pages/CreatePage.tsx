@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { DetailRecommendation } from "@/components/create/AIRecommendation";
+import dynamicAngleRefImage from "@/assets/dynamic-angle-reference.jpg";
 
 import { StepIndicator } from "@/components/create/StepIndicator";
 import { StepUpload } from "@/components/create/StepUpload";
@@ -238,6 +239,66 @@ const CreatePage = () => {
 
           const { data, error } = await supabase.functions.invoke("analyze-product", {
             body: { action: "generate", prompt: darklightPrompt, productImageBase64: base64, aspectRatio: detailOptions.mainAspectRatio },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+
+          if (error) throw new Error(error.message);
+          if (data?.error) throw new Error(data.error);
+          if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+          return data.imageDataUri;
+        } else if (selectedStyle === "dynamic-angle" && productImage) {
+          const resp = await fetch(productImage);
+          const blob = await resp.blob();
+          const rawBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          const base64 = await resizeImage(rawBase64);
+
+          // Load the static ARKIVE reference image from assets
+          const refResp = await fetch(dynamicAngleRefImage);
+          const refBlob = await refResp.blob();
+          const refBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(refBlob);
+          });
+
+          const dynamicAnglePrompt = `You are generating a premium beauty product photography image. Follow these instructions exactly.
+
+PRODUCT EXTRACTION:
+Extract ONLY the product from the uploaded product image. Remove all background, surface, and surrounding elements from the uploaded product image. Preserve every detail of the product's shape, label, texture, and color exactly as shown.
+
+COMPOSITION AND ASPECT RATIO:
+Slight low-angle camera shot — the camera is positioned just below product eye-level, angled slightly upward. The podium's top surface is barely visible, giving a grounded premium feel. Product is centered horizontally with generous negative space above. Single product placement, front-facing. Aspect ratio: 4:5 vertical.
+
+CAMERA AND LIGHTING DETAILS:
+Strong directional side light entering from the upper-right at approximately 45 degrees. This creates a dramatic, high-contrast shadow that extends long and sharp to the LEFT side of the product on the podium surface. The shadow is defined with soft feathered edges — not completely hard, but clearly directional. The background has a subtle radial brightening at the upper-center, naturally fading outward to light gray at the corners — this is a gentle ambient glow, not a spotlight shape. No circular orb or hard-edged light on background.
+
+ACTION:
+Product is stationary, standing upright on the podium surface.
+
+LOCATION AND ENVIRONMENT:
+Clean minimal indoor studio. Background: smooth seamless light gray (warm-neutral gray, not blue), slightly brighter at the upper-center and softly darker at the corners. Podium: a flat, matte white-to-light-gray surface clearly separated from the background wall. The podium surface is noticeably lighter/brighter than the background wall behind it. A clear horizontal edge defines the boundary between podium and background.
+
+STYLE:
+Premium commercial beauty product photography. Dramatic yet clean. High-end, editorial quality. Neutral warm-gray palette — no blue tones, no yellow warmth. Photorealistic with crisp product details and rich shadow depth.
+
+TEXT:
+Preserve all original text and labels on the product exactly as-is. No new text.
+
+NEGATIVE PROMPTS:
+no blue background, no warm orange tones, no props, no hands, no circular glowing orb on background, no multiple products, no cluttered composition, no glossy reflective podium surface, no flat even lighting, no soft shadowless look.`;
+
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: {
+              action: "generate",
+              prompt: dynamicAnglePrompt,
+              productImageBase64: base64,
+              referenceImageBase64: refBase64,
+              aspectRatio: detailOptions.mainAspectRatio,
+            },
             headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
           });
 
