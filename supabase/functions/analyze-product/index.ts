@@ -943,15 +943,25 @@ MANDATORY RULES:
       };
       const ratioInstruction = aspectRatio ? aspectMap[aspectRatio] || "" : "";
 
-      const systemPrompt = `${moodSection}You are a high-end commercial product photography AI specializing in detail shots.
+      const STORYBOARD_BASE_PROMPT = `Create a brand visual storyboard for presenting your product:
+
+Use the reference image as the base product reference. Keep the same product, packaging design, branding, materials, colors, proportions and overall identity across all panels exactly as the reference. The product must remain clearly recognizable in every frame. The label, logo and proportions must stay exactly the same.
+
+This storyboard is a high-end designer mockup presentation for a branding portfolio. The focus is on form, composition, materiality and visual rhythm rather than realism or lifestyle narrative. The overall look should feel curated, editorial and design-driven.`;
+
+      const systemPrompt = `${moodSection}${STORYBOARD_BASE_PROMPT}
+
+You are a high-end commercial product photography AI specializing in detail shots.
 Generate a single standalone product detail shot based on the following instruction.
 Preserve the product's label, typography, proportions, silhouette, and structural design exactly.
 Do NOT generate grids, collages, or composite layouts. One scene, one shot, one composition.
-${ratioInstruction ? `Output format: ${ratioInstruction}.` : "Output format: 4:5 vertical (portrait)."}`;
+${ratioInstruction ? `Output format: ${ratioInstruction}.` : "Output format: 1:1 square aspect ratio."}`;
 
       const shotInstruction = shotLabel
-        ? `Generate a detail shot: "${shotLabel}". Make it a premium, editorial-quality product photograph.`
-        : `Generate detail shot #${shotIndex}. Make it a premium, editorial-quality product photograph.`;
+        ? `SPECIFIC SHOT: "${shotLabel}"
+
+Based on the above shot type, automatically generate the most appropriate composition, lighting, and styling for this product. Make it a premium, editorial-quality product photograph that fits into the brand visual storyboard. The shot should clearly showcase the "${shotLabel}" aspect of the product in a visually compelling way.`
+        : `Generate detail shot #${shotIndex} for this product. Choose the most visually compelling angle and composition. Make it a premium, editorial-quality product photograph.`;
 
       console.log(`AI call: generate-ai-recommended shotIndex=${shotIndex} started`);
       const result = await callLovableAI({
