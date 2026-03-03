@@ -3,14 +3,14 @@ import { Check, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import styleMinimalStudio from "@/assets/style-minimal-studio.webp";
+import styleFloralsStudio from "@/assets/style-floral-studio.png";
 import styleDynamicAngle from "@/assets/style-dynamic-angle.jpg";
 import styleNatureLifestyle from "@/assets/style-nature-lifestyle.jpg";
 import styleTechFuturistic from "@/assets/style-tech-futuristic.webp";
 import styleDarklightStudio from "@/assets/style-darklight-studio.png";
 
 const stylePresets = [
-  { id: "minimal-studio",   label: "미니멀 스튜디오",    description: "깔끔한 배경, 소프트 라이팅",           thumbnail: styleMinimalStudio },
+  { id: "floral-studio",    label: "플로럴 스튜디오",    description: "플로럴 소품, 밝고 생동감 있는 연출",    thumbnail: styleFloralsStudio },
   { id: "dynamic-angle",    label: "다이나믹 앵글",       description: "역동적 구도, 강렬한 조명 대비",         thumbnail: styleDynamicAngle },
   { id: "nature-lifestyle", label: "네이처/라이프스타일", description: "자연광, 생활 맥락 속 제품",             thumbnail: styleNatureLifestyle },
   { id: "tech-futuristic",  label: "테크/퓨처리스틱",     description: "네온, 그리드, SF 감성",                thumbnail: styleTechFuturistic },

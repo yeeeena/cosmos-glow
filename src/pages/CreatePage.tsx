@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { DetailRecommendation } from "@/components/create/AIRecommendation";
 import dynamicAngleRefImage from "@/assets/dynamic-angle-reference.jpg";
+import floralStudioRefImage from "@/assets/floral-studio-reference.jpg";
 
 import { StepIndicator } from "@/components/create/StepIndicator";
 import { StepUpload } from "@/components/create/StepUpload";
@@ -296,6 +297,56 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
             body: {
               action: "generate",
               prompt: dynamicAnglePrompt,
+              productImageBase64: base64,
+              referenceImageBase64: refBase64,
+              aspectRatio: detailOptions.mainAspectRatio,
+            },
+            headers: { "x-app-secret": import.meta.env.VITE_APP_SECRET },
+          });
+
+          if (error) throw new Error(error.message);
+          if (data?.error) throw new Error(data.error);
+          if (!data?.imageDataUri) throw new Error("이미지 데이터를 받지 못했습니다.");
+          return data.imageDataUri;
+        } else if (selectedStyle === "floral-studio" && productImage) {
+          const resp = await fetch(productImage);
+          const blob = await resp.blob();
+          const rawBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          const base64 = await resizeImage(rawBase64);
+
+          // Load the built-in floral studio reference image from assets
+          const refResp = await fetch(floralStudioRefImage);
+          const refBlob = await refResp.blob();
+          const refBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(refBlob);
+          });
+
+          const floralStudioPrompt = `Use the product from the upload image as the main subject.
+Place the product upright and centered on a light sage-green surface or platform, elevated slightly above the lower edge of the frame, as if displayed on a small shelf or pedestal.
+Surround the product with fresh, natural botanicals arranged loosely around it:
+- A large yellow gerbera daisy behind and to the left
+- An orange gerbera daisy behind and to the right
+- Small white freesia or jasmine flowers cascading down the right side
+- Hanging white sweet pea flowers drooping in from the top left
+- A small branch of red hypericum berries and green leaves on the lower left
+Background: soft powder blue sky gradient, bright and airy, no clouds.
+The green platform/surface cuts horizontally across the lower third of the frame.
+Lighting: bright natural daylight, soft directional light from slightly above and front, clean highlights on the product, no harsh shadows. The overall mood is fresh, botanical, and commercial beauty editorial.
+Camera: shot straight-on at product eye level, slight low angle. Medium close-up framing — product fills roughly 1/3 of the image height. 4:5 vertical format.
+Keep all original text, branding, and label details on the product exactly as they appear in the reference image. Do not alter the product shape, color, or label.
+Style: premium beauty product photography, clean, vivid, editorial.
+No busy textures, no people, no hands.`;
+
+          const { data, error } = await supabase.functions.invoke("analyze-product", {
+            body: {
+              action: "generate",
+              prompt: floralStudioPrompt,
               productImageBase64: base64,
               referenceImageBase64: refBase64,
               aspectRatio: detailOptions.mainAspectRatio,
