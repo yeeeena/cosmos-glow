@@ -913,24 +913,22 @@ The two images must look like they belong to the same photographic series with i
         ? productImageBase64
         : `data:image/jpeg;base64,${productImageBase64}`;
 
-      // Build mood consistency section
+      // Build mood consistency section (mood only — NOT background matching)
       const moodSection = mainShotMood ? `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎨 VISUAL CONSISTENCY REFERENCE (CRITICAL — FOLLOW EXACTLY)
+🎨 MOOD REFERENCE (LIGHTING & TONE ONLY)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-The main concept shot for this product has already been generated.
-You MUST maintain full visual consistency with that shot across all recommended images.
+Refer to the main concept shot's mood for lighting and color temperature only.
+Do NOT replicate the background. Use a clean, simple studio background instead.
 Lighting Style     : ${mainShotMood.lightingStyle}
-Background Tone    : ${mainShotMood.bgTone}
 Color Temperature  : ${mainShotMood.colorTemperature}
-Composition Style  : ${mainShotMood.compositionStyle}
 Mood Keywords      : ${mainShotMood.moodKeywords?.join(", ")}
 Overall Aesthetic  : ${mainShotMood.overallAesthetic}
 MANDATORY RULES:
-- Replicate the background tone as precisely as possible
-- Maintain the same lighting direction and quality
+- Background: clean, minimal studio white or very light neutral — keep it simple so the product stands out clearly
+- Maintain the same lighting direction and quality as the mood reference
 - Keep the same color temperature (${mainShotMood.colorTemperature})
-- Every output must feel like it belongs to the same visual series as the main concept shot
+- The product must be the clear focal point against the clean background
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ` : "";
 

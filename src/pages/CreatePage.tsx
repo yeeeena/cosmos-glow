@@ -584,6 +584,7 @@ no blue background, no warm orange tones, no props, no hands, no circular glowin
             generatedImage={generatedImage}
             generatedDetailImages={generatedDetailImages}
             detailGeneratingIndex={detailGeneratingIndex}
+            detailRecommendation={detailRecommendation}
           />
         ) : currentStep === 1 ? (
           <StepUpload

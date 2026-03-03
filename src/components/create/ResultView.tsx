@@ -14,6 +14,17 @@ interface DetailOptions {
   aiAspectRatio: string;
 }
 
+interface DetailRecommendationDetail {
+  id: string;
+  label: string;
+  defaultChecked?: boolean;
+}
+
+interface DetailRecommendation {
+  category?: string;
+  details: DetailRecommendationDetail[];
+}
+
 interface ResultViewProps {
   isGenerating: boolean;
   onRestart: () => void;
@@ -21,16 +32,10 @@ interface ResultViewProps {
   generatedImage?: string | null;
   generatedDetailImages?: Record<string, string>;
   detailGeneratingIndex?: number;
+  detailRecommendation?: DetailRecommendation | null;
 }
 
-const AI_DETAIL_LABELS: Record<string, string> = {
-  "case-open": "충전 케이스 오픈 샷",
-  "wearing-side": "착용감 강조 측면 컷",
-  "touch-closeup": "터치 버튼 클로즈업",
-  "size-compare": "크기 비교 컷",
-};
-
-function buildResults(options: DetailOptions) {
+function buildResults(options: DetailOptions, detailRecommendation?: DetailRecommendation | null) {
   const basicResults: { id: string; label: string }[] = [];
   const aiResults: { id: string; label: string }[] = [];
 
@@ -42,7 +47,9 @@ function buildResults(options: DetailOptions) {
   }
   if (options.aiRecommended) {
     options.selectedAIDetails.forEach((id) => {
-      aiResults.push({ id, label: AI_DETAIL_LABELS[id] || id });
+      // Use Korean label from detailRecommendation if available
+      const recommended = detailRecommendation?.details.find((d) => d.id === id);
+      aiResults.push({ id, label: recommended?.label || id });
     });
   }
   return { basicResults, aiResults };
@@ -112,9 +119,10 @@ export function ResultView({
   detailOptions,
   generatedImage,
   generatedDetailImages = {},
+  detailRecommendation,
 }: ResultViewProps) {
   const [previewImage, setPreviewImage] = useState<{ src: string; label: string } | null>(null);
-  const { basicResults, aiResults } = buildResults(detailOptions);
+  const { basicResults, aiResults } = buildResults(detailOptions, detailRecommendation);
   const totalCount = 1 + basicResults.length + aiResults.length;
 
   const handleDownload = (dataUri: string, filename: string) => {
