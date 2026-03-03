@@ -403,6 +403,7 @@ lighting and material response throughout.${ratioInstruction ? ` ${ratioInstruct
         ],
         modalities: ["image", "text"],
         temperature: 1,
+        thinking_level: "high",
       });
 
       if (result.rateLimited) {
@@ -852,6 +853,7 @@ The two images must look like they belong to the same photographic series with i
         ],
         modalities: ["image", "text"],
         temperature: 1,
+        thinking_level: "high",
       });
 
       console.log(`AI call: generate-basic-details shotIndex=${shotIndex} completed`);
@@ -976,6 +978,7 @@ Based on the above shot type, automatically generate the most appropriate compos
         ],
         modalities: ["image", "text"],
         temperature: 1,
+        thinking_level: "high",
       });
 
       console.log(`AI call: generate-ai-recommended shotIndex=${shotIndex} completed`);
@@ -1079,6 +1082,7 @@ OUTPUT: A single cohesive image at ${ratioDesc} with the product centered and th
         ],
         modalities: ["image", "text"],
         temperature: 1,
+        thinking_level: "high",
       });
       console.log(`AI call: outpaint completed (${aspectRatio})`);
 
